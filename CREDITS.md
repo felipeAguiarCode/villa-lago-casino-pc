@@ -20,7 +20,7 @@ Jogo com **fichas fictícias**: sem dinheiro real, apostas reais ou compras (avi
 
 Splash "Made with CARD ENGINE": logo e animação originais, feitos para o jogo (não usa marca de nenhuma engine real).
 
-Trump 21: modo de blackjack original (baralho de 1 a 11 e cartas trunfo com nomes, efeitos e arte próprios),
+Trump 21: modo de blackjack original (baralho de 1 a 11 e cartas trunfo com nomes, efeitos e arte próprios; os ícones dos trunfos novos, como ímã, presente, muro e balança, foram desenhados em SVG no código),
 inspirado na mecânica de "blackjack com trunfos" — não usa personagens, nomes, arte ou marca de nenhum jogo existente.
 
 Decoração de mesa do PC modelada no código (sem assets externos): copos de cristal com bebidas (whisky, Old Fashioned, Negroni, conhaque, Mojito, Margarita, Cosmopolitan, gin-tônica, martini, caipirinha, vinho, champanhe), cafezinho, chá em porcelana, balde de champanhe, decanter de cristal, abajur de banqueiro, sineta, protetor de cartas, bandeja de fichas, umidor, vela, torres de fichas, placas de alto valor, botão de dealer, dados, plaquetas de mesa e o charuto aceso no cinzeiro da tela inicial (`src/table/decorKit.ts`). Não há charuto ou cinzeiro CC0 realista nos acervos livres (Poly Haven, Poly Pizza, OpenGameArt); por isso o charuto foi modelado no código.
@@ -29,7 +29,7 @@ Marcas de baralho do PC (Veloce, VL Poker Series, Stallion, Royal Salon, Canarin
 
 Mesas novas do PC modeladas no código (sem assets externos): roda e pano da roleta europeia, moeda de ouro do Coin Flip, pista de tabuleiro e cavalinhos de brinquedo do Lucky Horses (`src/games/roulette`, `coinflip`, `horses`). High & Low, Red or Black e Pick a Number são jogos de cartas simples e genéricos; as regras e os pagamentos desta versão (contra a banca) são nossos.
 
-Teclas da faixa estilo máquina de cassino: feitas em CSS, sem imagens externas. Efeitos sonoros extras (moedas, sino, jackpot, a bolinha da roleta (rolando, trepidando, batendo no defletor, quicando nos trastes e assentando, em `src/audio/rouletteSound.ts`), moeda girando, fanfarra, galope, clique das teclas, motor e paradas dos rolos, alavanca e teclas HOLD do Poker Slots, e a vinheta de abertura no estilo dos consoles de 16 bits, com melodia própria em `src/audio/bootChime.ts`) sintetizados com WebAudio (`src/audio/sfx.ts`).
+Teclas da faixa estilo máquina de cassino: feitas em CSS, sem imagens externas. Efeitos sonoros extras (moedas, sino, jackpot, a bolinha da roleta (rolando, trepidando, batendo no defletor, quicando nos trastes e assentando, em `src/audio/rouletteSound.ts`), moeda girando, fanfarra, galope, clique das teclas, motor e paradas dos rolos, alavanca e teclas HOLD do Poker Slots, o trunfo bônus saindo do baralho e a Barreira do Trump 21, e a vinheta de abertura no estilo dos consoles de 16 bits, com melodia própria em `src/audio/bootChime.ts`) sintetizados com WebAudio (`src/audio/sfx.ts`).
 
 Poker Slots e Hold'em Slots (PC): gabinete, painel de combinações (tecla ?), letreiros de LED em matriz de pontos (fonte 5×7 própria, com os quatro naipes) e rolos em forma de tambor feitos em CSS e canvas, sem imagens externas; as cartas dos rolos usam as mesmas faces do jogo. Inspirado no visual genérico das máquinas caça-níquel de pôquer; não usa nome, logo ou arte de nenhuma máquina real.
 

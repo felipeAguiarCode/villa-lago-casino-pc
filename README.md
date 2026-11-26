@@ -24,7 +24,7 @@ The game is set at the Villa Lago casino, whose symbol is **VL on a golden chip*
 |---|---|
 | Blackjack | 6 decks, 3:2, split up to 4 hands, double after split, insurance / even money, basic-strategy hint |
 | Party Blackjack | The same blackjack at a full table: you and four AI regulars each play their own hands, in seat order, against one dealer; RTP 99.65% with basic strategy (2,000,000-round simulation). The regulars' calculated mindset counts cards (Hi-Lo, index plays, bet spread) |
-| Party Trump 21 | Trump 21 at a full table: one shoe of five 1–11 decks, every seat with its own target and trump hand; attacks on the dealer's hand change the round for the whole table; ties go to the dealer, who gets two trumps a round; best strategy 97.8% |
+| Party Trump 21 | Trump 21 at a full table: one shoe of five 1–11 decks, every seat with its own target and trump hand; attacks on the dealer's hand (Heist, Gift and Rewind among them) change the round for the whole table; bonus trumps on a hit as at Trump 21 (Overload stays a single-table card); ties go to the dealer, who gets two trumps a round; best strategy 97.8% |
 | Party Lucky Horses | Lucky Horses with four regulars at the rail: everybody's chips on every horse in their seat colours, cheering for the leader; same odds and RTP as Lucky Horses (94.9%) |
 | Craps | Casino craps on a 3D table with diamond-pyramid walls and physical translucent dice: Pass / Don't Pass, Come / Don't Come, free 3-4-5× odds, Place, Field, Big 6/8, hardways and the centre props, ON/OFF puck, stickman calls; every house edge as in the textbooks (Pass 1.41%, odds 0%) |
 | Poker Dice | Five card-faced dice (9 to A) rolled from a leather cup into a tray, three rolls with holds, then the dealer rolls to beat you; five of a kind pays 2:1, Bonus side bet; ANTE 96.6% with the exact optimal holds |
@@ -34,7 +34,7 @@ The game is set at the Villa Lago casino, whose symbol is **VL on a golden chip*
 | High & Low | Higher, lower or the same rank as the card showing; Higher / Lower pay by the cards still in the deck (never above 95%), Same pays 11:1 while its return stays under 95% |
 | Red or Black | One card from a 54-card deck: colour 1:1, suit 3:1; the two Jokers beat every bet (96.30%) |
 | Pick a Number | The dealer shows a target number and lays five cards face down, one of them matching (unless the house Joker slipped in, 1 in 20): chips under the right card pay 4:1 (95%) |
-| Trump 21 | Original duel blackjack with an 11-card deck (1–11) and **41 trump cards** in three rarities that change the target, draws and stakes, among them 16 target cards (lines 15 to 30, Line ±2 and the random **Wild Line**); ties go to the dealer; best strategy (the hint) 98.2% |
+| Trump 21 | Original duel blackjack with an 11-card deck (1–11) and **52 trump cards** in three rarities that change the target, draws and stakes, among them 16 target cards (lines 15 to 30, Line ±2 and the random **Wild Line**) and Lighten, Heist, Gift, Overload, Rewind, Barrier (blocks an attack), Tiebreaker, Bullseye (3:1 right on the target) and Reinforce. About one hit in five turns up a **bonus trump** instead of the card: it flies out of the deck with its own sound, the turn stays yours and the next hit is a sure card. **Press and hold** a trump to read what it does; a tap plays it. Ties go to the dealer; best strategy (the hint) 98.4% |
 | Three Card Poker | Ante / Play, Pair Plus, **Lucky 6**, ante bonus, and six table modes: Classic, **Ultimate** (raise up to 3×), **Face Up** (one dealer card shown), **Prime** (colour bet), **Draw** (replace a card), **Hold'em** (shared cards) |
 | Party Three Card Poker | Three Card Poker with four regulars: Ante / Play, Pair Plus and the ante bonus, decisions in seat order, regulars who read the cards you turn face up |
 | Three Card Slots | Slot machine with three card reels, Mini Royal |
@@ -114,7 +114,7 @@ Every table opens with a cardistry show picked at random, never the same one twi
   - War and Caribbean Stud: an open humidor of cigars.
   - The busy tables (the Party tables, Roulette, Lucky Horses, Craps) keep their felt clear.
   - Everything is modelled in code except the goblets, the watch and the lighter, which are CC0 models from Poly Haven.
-- **Sound.** Besides the Kenney casino sounds, synthesized effects: falling coins and a bell on wins, a jackpot run on big wins, a wah-wah on losses, slot reel ticks, the roulette ball, the spinning coin, the starting fanfare and the gallop, and a clunk on every key.
+- **Sound.** Besides the Kenney casino sounds, synthesized effects: falling coins and a bell on wins, a jackpot run on big wins, a wah-wah on losses, slot reel ticks, the roulette ball, the spinning coin, the starting fanfare and the gallop, a clunk on every key, and at the Trump 21 tables a shimmer and a run of glassy bells when a bonus trump comes out of the deck (brighter for the rarer cards) and a clang when a Barrier blocks an attack.
 - **Mouse and keyboard.** Buttons, chips and tiles light up on hover. **Esc** closes the open panel or the menu.
 
 ### Dev tools
@@ -127,7 +127,7 @@ Every table opens with a cardistry show picked at random, never the same one twi
 ```bash
 npm install
 npm run dev          # http://127.0.0.1:5174
-npm run test         # 565 rule / payout / RTP / achievement tests
+npm run test         # 586 rule / payout / RTP / achievement tests
 npm run sim:showdown # Showdown Poker balance report → docs/showdown-balance.md
 npm run sim:abyss    # Abyss Poker balance report → docs/abyss-balance.md
 npm run sim:brazil   # Brazilian games balance report → docs/brazil-balance.md

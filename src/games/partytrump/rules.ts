@@ -1,5 +1,6 @@
 import { cryptoRng, shuffle, type Rng } from '../../core/rng';
 import {
+  BULLSEYE_EXTRA,
   dealWeight,
   isTargetTrump,
   lineValue,
@@ -8,6 +9,7 @@ import {
   TARGET_MAX,
   TARGET_MIN,
   TRUMPS,
+  BONUS_ON_HIT,
   TRUMP_ON_HIT,
   wildTarget,
   wildTargets,
@@ -42,7 +44,9 @@ import {
  *   for a seat on Line 17, and a seat on Line 27 would beat every standing dealer.
  *
  * TRUMPS AT A FULL TABLE (each seat holds up to five, kept between rounds, dealt with Trump 21's
- * weights (`dealWeight`): one at every deal and a 30% chance with every card a seat hits)
+ * weights (`dealWeight`): one at every deal, and a seat's hit turns up a bonus trump instead of
+ * the card one time in five (PX.trumpOnHit) while its hand has room: the seat keeps its turn and
+ * its next hit is a sure card. The dealer's hits keep a 30% trump along with the card.)
  * - Personal, only the seat that plays them: draw control (Precision, Feather, Call 2–7, Twin
  *   Draw, Redraw, Recall), information (Glimpse is a private peek at the hole card; Foresight
  *   shows the seat the top card of the shoe; Reshuffle shuffles the shoe), the target family
@@ -50,14 +54,19 @@ import {
  *   from 16–28) and stakes (Guard, Fortress, Stakes Up, Bounty).
  * - Attacks on the dealer change its hand or trumps for the whole table: Burn (its last card back
  *   to the shoe), Switch (your last card for its last card), Force Draw (it takes the top card
- *   now), Freeze, Shatter, Pickpocket and Blindfold.
+ *   now), Freeze, Shatter, Pickpocket, Blindfold, Heist (its last card to your hand), Gift (your
+ *   last card to it) and Rewind (your last card and its last card back to the shoe).
+ * - Personal too: Lighten (your highest card back), Barrier (blocks the next dealer trump aimed at
+ *   the seat: no reply), Tiebreaker (the seat wins its ties), Bullseye (3:1 right on its target),
+ *   Reinforce (two new trumps).
  * - Adapted: Precision and Feather pick from the next three cards of the shoe (with five decks
  *   the whole shoe nearly always holds the perfect card, which would make Precision a sure 21);
  *   Freeze lets the dealer draw at most one card on its turn (it plays last, so "stand on your
  *   next turn" would leave it on two cards and hand the whole table the round).
- * - Dropped: the dealer's Freeze (it plays last; no seat has a turn left to freeze), so its pool
- *   is Trump 21's dealer pool minus Freeze. No trump of Trump 21 is dropped for the seats; any
- *   new non-target trump Trump 21 adds later stays out of the pools until this table knows it.
+ * - Dropped: the dealer's Freeze (it plays last; no seat has a turn left to freeze), Heist and
+ *   Barrier, so its pool is Trump 21's dealer pool minus those three (it gains Lighten). For the
+ *   seats only Overload is left out (PARTY_LEFT_OUT); any new non-target trump Trump 21 adds later
+ *   stays out of the pools until this table knows it.
  * - The dealer is dealt two trumps every round (it faces five hands; a seat gets one) and its
  *   hand holds five, a new one replacing its oldest, so it never clogs (Trump 21 does the same).
  *
@@ -74,8 +83,9 @@ import {
  *   stake whose last card is a 6 or more and whose hand beats the dealer's; Precision, Call 5 /
  *   Call 4 to improve its hand. It reads a seat as its face-up cards plus 6 for the private one.
  *
- * PAYOUTS (total return per stake): win 2× (3× with Bounty), loss 0 (½ back with Guard,
- * rounded down; the whole stake with Fortress). Stakes Up adds a second stake equal to the bet.
+ * PAYOUTS (total return per stake): win 2× (3× with Bounty; Bullseye right on the target adds 2),
+ * loss 0 (½ back with Guard, rounded down; the whole stake with Fortress). Stakes Up adds a second
+ * stake equal to the bet.
  *
  * RTP: see PX_RTP below and tests/partytrump.test.ts.
  */
@@ -93,8 +103,8 @@ export const PX = {
   aiMin: 10,
   aiMax: 200,
   maxTrumps: MAX_TRUMPS,
-  /** Chance of a new trump with each card a seat / the dealer hits. */
-  trumpOnHit: TRUMP_ON_HIT,
+  /** Bonus trump chance of a seat's hit (instead of the card) / trump chance with each card the dealer hits. */
+  trumpOnHit: BONUS_ON_HIT,
   dealerOnHit: TRUMP_ON_HIT,
   /** Trumps the dealer is dealt every round (a seat: one): it faces five hands. */
   dealerDeal: 2,
@@ -114,12 +124,14 @@ export const PX = {
  * shorter runs):
  * - party: the player's seat with the strongest strategy found (ai.ts `calculated`, which is
  *   also the light bulb), next to four regulars who draw a new mindset every hand: 97.8%
- *   (2 × 40,000 rounds: 98.2 / 97.4). Simpler play: hit at even odds without trumps 51.9%,
- *   always hit to 17 52.0%, every trump at once then hit to 17 55.8%.
- * - single: the single Trump 21 table with the same strategy: 98.2% (see trump21/rules.ts).
+ *   (3 × 40,000 rounds: 97.8 / 97.5 / 98.1). Simpler play: hit at even odds without trumps
+ *   51.1%, always hit to 17 52.3%, every trump at once then hit to 17 57.3%.
+ * - single: the single Trump 21 table with the same strategy: 98.4% (see trump21/rules.ts).
  * - mindsets: five players with one fixed mindset each at one table (seats rotating, 3 × 20,000
- *   rounds): calculated 98.5%, aggressive 97.4%, hybrid 96.0%, conservative 91.6%, hunch 72.8%.
- *   The regulars as they play (a new mindset every hand) return 95.0%.
+ *   rounds): calculated 96.9%, aggressive 95.6%, hybrid 93.6%, conservative 89.9%, hunch 70.0%.
+ *   The regulars as they play (a new mindset every hand) return 93.6%.
+ * With the bonus trumps and the newer trumps, Overload dealt to the seats pushed the strong seat
+ * to ~99.5–100% (five seats throwing two cards at the dealer for everyone); without it, 97.8%.
  * How it got there (it paid 122.4% to the strong strategy, like Trump 21's 124.4%):
  *   - ties go to the dealer (they went to the seat);
  *   - the dealer is dealt two trumps every round instead of one.
@@ -128,13 +140,13 @@ export const PX = {
  *   ~102%; ties alone ~100%.
  */
 export const PX_RTP = {
-  single: 0.982,
+  single: 0.984,
   party: 0.978,
-  mindsets: { calculated: 0.985, aggressive: 0.974, hybrid: 0.96, conservative: 0.916, hunch: 0.728 },
-  regulars: 0.95,
+  mindsets: { calculated: 0.969, aggressive: 0.956, hybrid: 0.936, conservative: 0.899, hunch: 0.7 },
+  regulars: 0.936,
 };
 
-const CALLS: Partial<Record<TrumpId, number>> = { call2: 2, call3: 3, call4: 4, call5: 5, call6: 6, call7: 7 };
+const CALLS: Partial<Record<TrumpId, number>> = { call1: 1, call2: 2, call3: 3, call4: 4, call5: 5, call6: 6, call7: 7, call8: 8 };
 export const callValue = (id: TrumpId): number | undefined => CALLS[id];
 
 /** Wild Line draws a target in this range (never the current one); shifts stay within SHIFT. */
@@ -164,19 +176,26 @@ export function movedTarget(m: TargetMove, cur: number): number | null {
 }
 
 /** Attack trumps: they act on the dealer's hand or trumps (the whole table feels them). */
-export const ATTACKS: TrumpId[] = ['burn', 'switch', 'force', 'freeze', 'shatter', 'pickpocket', 'blindfold'];
+export const ATTACKS: TrumpId[] = ['burn', 'switch', 'force', 'freeze', 'shatter', 'pickpocket', 'blindfold', 'heist', 'gift', 'overload', 'rewind'];
 export const isAttack = (id: TrumpId) => ATTACKS.includes(id);
 /** Stake trumps (only change what the seat's own bet pays). */
-export const STAKE_TRUMPS: TrumpId[] = ['guard', 'fortress', 'stakes', 'bounty'];
+export const STAKE_TRUMPS: TrumpId[] = ['guard', 'fortress', 'stakes', 'bounty', 'tiebreak', 'bullseye'];
 
 /** Trumps this table knows how to play (anything Trump 21 adds that isn't a target trump is left out). */
 const KNOWN = new Set<string>([
-  'precision', 'feather', 'twin', 'redraw', 'recall', 'glimpse', 'foresight', 'reshuffle',
+  'precision', 'feather', 'twin', 'redraw', 'recall', 'lighten', 'glimpse', 'foresight', 'reshuffle', 'barrier', 'reinforce',
   ...Object.keys(CALLS), ...ATTACKS, ...STAKE_TRUMPS,
 ]);
 export const knownTrump = (id: TrumpId) => KNOWN.has(id) || isTargetTrump(id);
-export const SEAT_POOL: TrumpId[] = TRUMPS.map((t) => t.id).filter(knownTrump);
-export const DEALER_POOL: TrumpId[] = TRUMPS.filter((t) => t.dealer && t.id !== 'freeze' && knownTrump(t.id)).map((t) => t.id);
+/**
+ * Left out at this table: Overload (the dealer takes two cards). With five seats throwing it at the
+ * dealer for everyone's benefit it paid the strongest seat ~99.5–100% (97.9% without it).
+ */
+export const PARTY_LEFT_OUT = new Set<TrumpId>(['overload']);
+export const SEAT_POOL: TrumpId[] = TRUMPS.map((t) => t.id).filter((id) => knownTrump(id) && !PARTY_LEFT_OUT.has(id));
+/** The dealer's own trumps at this table (no Freeze, Heist or Barrier: it plays last and faces five hands). */
+const NOT_DEALER = new Set<TrumpId>(['freeze', 'heist', 'barrier']);
+export const DEALER_POOL: TrumpId[] = TRUMPS.filter((t) => t.dealer && !NOT_DEALER.has(t.id) && knownTrump(t.id)).map((t) => t.id);
 
 /** One trump drawn from a pool with Trump 21's dealing weights (rarity; the target family scaled down). */
 export function pickTrump(pool: TrumpId[], rng: Rng): TrumpId {
@@ -201,7 +220,12 @@ export type PxEvent =
   | { t: 'target'; who: Who; n: number; wild?: boolean }
   /** A trump is played; `on` is the seat a dealer trump is aimed at. */
   | { t: 'trump'; who: Who; id: TrumpId; on?: number }
-  | { t: 'gain'; who: Who; id: TrumpId }
+  /** A new trump; `bonus`: it came out of the shoe with a hit (a seat's card is still to come). */
+  | { t: 'gain'; who: Who; id: TrumpId; bonus?: boolean }
+  /** Heist / Gift: a card goes from one hand to another. */
+  | { t: 'move'; from: Who; to: Who; value: number }
+  /** The seat's Barrier stopped a dealer trump aimed at it. */
+  | { t: 'blocked'; seat: number; id: TrumpId }
   | { t: 'lose'; who: Who; id: TrumpId; by: 'shatter' | 'pickpocket' | 'discard' }
   | { t: 'foresee'; seat: number; value: number }
   | { t: 'glimpse'; seat: number; value: number }
@@ -233,6 +257,14 @@ export class PxSeat {
   sawHole = false;
   /** Knows the top card of the shoe (Foresight). */
   knowsTop = false;
+  /** Barrier: the next dealer trump aimed at this seat is blocked. */
+  barrier = false;
+  /** Tiebreaker: ties go to this seat. */
+  tieWin = false;
+  /** Bullseye: a win exactly on the target pays BULLSEYE_EXTRA more. */
+  bullseye = false;
+  /** A bonus trump came out with the last hit: the next hit is a sure card. */
+  sure = false;
   stood = false;
   constructor(
     readonly bet: number,
@@ -379,17 +411,18 @@ export class PartyDuel {
    * A trump for a seat (none when its hand is full) or for the dealer: when the dealer's hand is
    * full its oldest trump makes room, so the house never sits on five cards it can't play.
    */
-  private grant(who: Who, chance: number) {
+  private grant(who: Who, chance: number, bonus = false): boolean {
     const list = who === DEALER ? this.dealer.trumps : this.seats[who].trumps;
-    if (list.length >= PX.maxTrumps && who !== DEALER) return;
-    if (this.rng(1000) >= chance * 1000) return;
+    if (list.length >= PX.maxTrumps && who !== DEALER) return false;
+    if (this.rng(1000) >= chance * 1000) return false;
     const id = pickTrump(who === DEALER ? DEALER_POOL : SEAT_POOL, this.rng);
     if (list.length >= PX.maxTrumps) {
       const [old] = list.splice(0, 1);
       this.emit({ t: 'lose', who, id: old, by: 'discard' });
     }
     list.push(id);
-    this.emit({ t: 'gain', who, id });
+    this.emit(bonus ? { t: 'gain', who, id, bonus } : { t: 'gain', who, id });
+    return true;
   }
 
   /**
@@ -417,10 +450,21 @@ export class PartyDuel {
     return this.phase === 'dealer' && this.reply === seat;
   }
 
+  /**
+   * A hit. It may turn up a bonus trump instead of the card (PX.trumpOnHit, while the seat's trump
+   * hand has room): the seat keeps its turn and its next hit is a sure card.
+   */
   hit(seat: number): PxEvent[] {
     if (!this.live(seat)) return [];
+    const s = this.seats[seat];
+    if (this.shoe.length) {
+      if (s.sure) s.sure = false;
+      else if (this.grant(seat, PX.trumpOnHit, true)) {
+        s.sure = true;
+        return this.flush();
+      }
+    }
     if (this.give(seat) === null) return this.stand(seat);
-    this.grant(seat, PX.trumpOnHit);
     return this.flush();
   }
 
@@ -457,6 +501,23 @@ export class PartyDuel {
       case 'feather':
       case 'force':
         return this.shoe.length > 0;
+      case 'lighten':
+      case 'gift':
+        return me.length >= 2;
+      case 'heist':
+        return d.cards.length >= 2;
+      case 'overload':
+        return this.shoe.length >= 2;
+      case 'rewind':
+        return me.length >= 2 && d.cards.length >= 2;
+      case 'barrier':
+        return !s.barrier;
+      case 'tiebreak':
+        return !s.tieWin;
+      case 'bullseye':
+        return !s.bullseye;
+      case 'reinforce':
+        return true;
       case 'twin':
         return this.shoe.length >= 2;
       case 'redraw':
@@ -611,6 +672,42 @@ export class PartyDuel {
       case 'bounty':
         s.winMult = 2;
         break;
+      case 'lighten':
+        this.toShoe(seat, s.cards.indexOf(Math.max(...s.cards)));
+        break;
+      case 'heist': {
+        const v = D.cards.pop()!;
+        s.cards.push(v);
+        this.emit({ t: 'move', from: DEALER, to: seat, value: v });
+        break;
+      }
+      case 'gift': {
+        const v = s.cards.pop()!;
+        D.cards.push(v);
+        this.emit({ t: 'move', from: seat, to: DEALER, value: v });
+        break;
+      }
+      case 'overload':
+        this.give(DEALER);
+        this.give(DEALER);
+        break;
+      case 'rewind':
+        this.toShoe(seat, s.cards.length - 1);
+        this.toShoe(DEALER, D.cards.length - 1);
+        break;
+      case 'barrier':
+        s.barrier = true;
+        break;
+      case 'tiebreak':
+        s.tieWin = true;
+        break;
+      case 'bullseye':
+        s.bullseye = true;
+        break;
+      case 'reinforce':
+        this.grant(seat, 1);
+        this.grant(seat, 1);
+        break;
     }
     return this.flush();
   }
@@ -638,6 +735,7 @@ export class PartyDuel {
       case 'precision':
         return draw;
       case 'recall':
+      case 'lighten':
         return D.cards.length >= 2;
       default:
         return true; // aimed trumps check their seat in dealerTrump()
@@ -654,7 +752,13 @@ export class PartyDuel {
     // a seat as the dealer reads it: face-up cards + 6 for the private one
     const est = (i: number) => this.visibleTotal(i) + 6;
     const seats = this.seats.map((s, i) => ({ s, i }));
-    if (d > T && has('recall')) return { id: 'recall' };
+    if (d > T) {
+      // Recall (the last card) or Lighten (the highest), the one that brings it back under
+      const last = D.cards[D.cards.length - 1];
+      if (has('recall') && d - last <= T) return { id: 'recall' };
+      if (has('lighten') && d - Math.max(...D.cards) <= T) return { id: 'lighten' };
+      if (has('recall')) return { id: 'recall' };
+    }
     // its target trumps, with where each would put the table target (null: Wild Line)
     const lines = [...new Set(D.trumps)].filter((id) => isTargetTrump(id) && has(id)).map((id) => ({ id, to: movedTarget(targetMove(id)!, T) }));
     if (d > T) {
@@ -716,20 +820,26 @@ export class PartyDuel {
     return null;
   }
 
-  private dealerUse(id: TrumpId, on?: number) {
+  /** Plays a dealer trump; false when a seat's Barrier stopped it. */
+  private dealerUse(id: TrumpId, on?: number): boolean {
     const D = this.dealer;
     D.trumps.splice(D.trumps.indexOf(id), 1);
     this.emit({ t: 'trump', who: DEALER, id, on });
+    if (on !== undefined && this.seats[on].barrier) {
+      this.seats[on].barrier = false;
+      this.emit({ t: 'blocked', seat: on, id });
+      return false;
+    }
     if (CALLS[id] !== undefined) {
       this.give(DEALER, this.shoe.indexOf(CALLS[id]!));
       D.drawn++;
-      return;
+      return true;
     }
     const tm = targetMove(id);
     if (tm) {
       this.tableTarget = this.resolveTarget(tm, this.tableTarget);
       this.emit({ t: 'target', who: DEALER, n: this.tableTarget, wild: tm.kind === 'wild' || undefined });
-      return;
+      return true;
     }
     switch (id) {
       case 'precision':
@@ -738,6 +848,9 @@ export class PartyDuel {
         break;
       case 'recall':
         this.toShoe(DEALER, D.cards.length - 1);
+        break;
+      case 'lighten':
+        this.toShoe(DEALER, D.cards.indexOf(Math.max(...D.cards)));
         break;
       case 'shatter': {
         const list = this.seats[on!].trumps;
@@ -752,6 +865,7 @@ export class PartyDuel {
         this.toShoe(on!, this.seats[on!].cards.length - 1);
         break;
     }
+    return true;
   }
 
   /**
@@ -763,8 +877,8 @@ export class PartyDuel {
     if (this.phase !== 'dealer' || D.stood || this.reply !== null) return [];
     const pick = this.dealerTrump();
     if (pick && this.rng(1000) < this.aggression * 1000) {
-      this.dealerUse(pick.id, pick.on);
-      if (pick.on !== undefined && (pick.id === 'force' || pick.id === 'burn')) {
+      const hit = this.dealerUse(pick.id, pick.on);
+      if (hit && pick.on !== undefined && (pick.id === 'force' || pick.id === 'burn')) {
         this.reply = pick.on;
         this.seats[pick.on].stood = false;
         this.emit({ t: 'reply', seat: pick.on });
@@ -775,7 +889,7 @@ export class PartyDuel {
     if (d < this.tableTarget - PX.standGap && this.shoe.length && this.dealerDraws > 0) {
       this.give(DEALER);
       D.drawn++;
-      this.grant(DEALER, PX.dealerOnHit);
+      this.grant(DEALER, PX.dealerOnHit, true);
     } else {
       D.stood = true;
       this.phase = 'done';
@@ -789,13 +903,19 @@ export class PartyDuel {
   }
 
   outcome(seat: number): 1 | -1 {
-    return compare(this.total(seat), this.targetOf(seat), this.total(DEALER), this.tableTarget);
+    return compare(this.total(seat), this.targetOf(seat), this.total(DEALER), this.tableTarget, PX.tiesToSeat || this.seats[seat].tieWin);
+  }
+
+  /** What a seat's win pays (to 1): 1, 2 with Bounty, plus BULLSEYE_EXTRA when Bullseye lands exactly on its target. */
+  winPays(seat: number) {
+    const s = this.seats[seat];
+    return s.winMult + (s.bullseye && this.total(seat) === this.targetOf(seat) ? BULLSEYE_EXTRA : 0);
   }
 
   /** Amount returned on one stake of a seat (its bet, or the Stakes Up raise). */
   payout(seat: number, stake: number): number {
     const s = this.seats[seat];
-    if (this.outcome(seat) > 0) return stake * (1 + s.winMult);
+    if (this.outcome(seat) > 0) return stake * (1 + this.winPays(seat));
     if (s.fortress) return stake;
     return s.guard ? Math.floor(stake / 2) : 0;
   }

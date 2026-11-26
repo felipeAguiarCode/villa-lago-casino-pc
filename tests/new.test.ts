@@ -286,9 +286,9 @@ describe('Trump 21 — trump variations', () => {
     d.trumps.dealer = [];
     return d;
   };
-  it('has 41 trumps with unique ids', () => {
-    expect(TRUMPS.length).toBe(41);
-    expect(new Set(TRUMPS.map((t) => t.id)).size).toBe(41);
+  it('has 52 trumps with unique ids', () => {
+    expect(TRUMPS.length).toBe(52);
+    expect(new Set(TRUMPS.map((t) => t.id)).size).toBe(52);
   });
   it('draw control: feather, calls, twin, redraw', () => {
     const d = fresh(5, ['feather', 'twin', 'redraw']);

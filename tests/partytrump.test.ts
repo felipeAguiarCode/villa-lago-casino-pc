@@ -204,6 +204,8 @@ describe('Party Trump 21 — trumps at a full table', () => {
 
   it('the dealer rescues a bust with the tightest higher target', () => {
     const r = table({ dealer: [9, 8, 6], dealerTrumps: ['line27', 'line24', 'line23'] });
+    // only these three (the deal added two more)
+    r.dealer.trumps.splice(3);
     standAll(r);
     r.aggression = 1;
     r.dealerStep();
@@ -220,7 +222,7 @@ describe('Party Trump 21 — trumps at a full table', () => {
   });
 
   it('deals by Trump 21 weights from pools the table knows; the dealer holds no Freeze', () => {
-    expect(SEAT_POOL.length).toBe(TRUMPS.length);
+    expect(SEAT_POOL.length).toBe(TRUMPS.length - 1); // every trump but Overload
     expect(DEALER_POOL).not.toContain('freeze');
     const rng = seededRng(4);
     let target = 0;
@@ -331,8 +333,99 @@ describe('Party Trump 21 — the regulars', () => {
   });
 });
 
+describe('Party Trump 21 — bonus trumps and the newer trumps', () => {
+  const withBonus = <T>(chance: number, f: () => T): T => {
+    const was = PX.trumpOnHit;
+    PX.trumpOnHit = chance;
+    try {
+      return f();
+    } finally {
+      PX.trumpOnHit = was;
+    }
+  };
+
+  it("a seat's hit may turn up a bonus trump: it keeps its turn and its next hit is a sure card", () => {
+    expect(PX.trumpOnHit).toBe(0.2);
+    withBonus(1, () => {
+      const r = table({ hands: [[2, 3]], shoe: [4, 5, 6, 7] });
+      const ev = r.hit(0);
+      expect(ev.length).toBe(1);
+      expect(ev[0]).toMatchObject({ t: 'gain', who: 0, bonus: true });
+      expect(r.seats[0].cards).toEqual([2, 3]);
+      expect(r.seats[0].trumps.length).toBe(1);
+      expect(r.live(0)).toBe(true);
+      expect(r.hit(0)).toContainEqual({ t: 'card', who: 0, value: 4, hidden: false });
+      expect(r.seats[0].cards).toEqual([2, 3, 4]);
+      // a full hand: always the card
+      r.seats[1].trumps.push('call2', 'call2', 'call2', 'call2', 'call2');
+      expect(r.hit(1).some((e) => e.t === 'card')).toBe(true);
+    });
+  });
+
+  it('the dealer knows Lighten but holds no Heist, Barrier or Freeze; the seats get every newer trump but Overload', () => {
+    expect(DEALER_POOL).toContain('lighten');
+    for (const id of ['heist', 'barrier', 'freeze'] as TrumpId[]) expect(DEALER_POOL).not.toContain(id);
+    for (const id of ['call1', 'call8', 'lighten', 'heist', 'gift', 'rewind', 'barrier', 'tiebreak', 'bullseye', 'reinforce'] as TrumpId[]) expect(SEAT_POOL).toContain(id);
+    expect(SEAT_POOL).not.toContain('overload');
+  });
+
+  it('Heist, Gift, Rewind and Lighten at a full table (and Overload, which the engine still knows)', () => {
+    const r = table({ dealer: [7, 10], shoe: [4, 6, 8, 2, 3], hands: [[5, 9, 11]], trumps: [['heist', 'gift', 'overload', 'rewind', 'lighten']] });
+    expect(r.useTrump(0, 'heist')).toContainEqual({ t: 'move', from: DEALER, to: 0, value: 10 });
+    expect(r.seats[0].cards).toEqual([5, 9, 11, 10]);
+    expect(r.dealer.cards).toEqual([7]);
+    expect(r.canUse(0, 'rewind')).toBe(false); // the dealer has one card left
+    r.useTrump(0, 'gift');
+    expect(r.dealer.cards).toEqual([7, 10]);
+    r.useTrump(0, 'overload');
+    expect(r.dealer.cards).toEqual([7, 10, 4, 6]);
+    r.useTrump(0, 'rewind');
+    expect(r.seats[0].cards).toEqual([5, 9]);
+    expect(r.dealer.cards).toEqual([7, 10, 4]);
+    expect(r.shoe.length).toBe(5);
+    r.useTrump(0, 'lighten');
+    expect(r.seats[0].cards).toEqual([5]);
+  });
+
+  it("a seat's Barrier blocks the dealer's trump aimed at it, and there is no reply", () => {
+    const r = table({ hands: [[2, 11, 4], [5, 6], [5, 6], [5, 6], [5, 6]], dealer: [8, 10], shoe: [8, 2, 2, 2], dealerTrumps: ['force'], trumps: [['barrier']] });
+    r.dealer.trumps.splice(1);
+    r.useTrump(0, 'barrier');
+    standAll(r);
+    r.aggression = 1;
+    const ev = r.dealerStep();
+    expect(ev).toContainEqual({ t: 'blocked', seat: 0, id: 'force' });
+    expect(r.seats[0].cards).toEqual([2, 11, 4]);
+    expect(r.reply).toBe(null);
+    expect(r.seats[0].barrier).toBe(false);
+  });
+
+  it('Tiebreaker wins the ties; Bullseye pays 3 to 1 right on the target', () => {
+    const r = table({ hands: [[10, 9], [10, 11]], dealer: [11, 8], trumps: [['tiebreak'], ['bullseye']] });
+    r.useTrump(0, 'tiebreak');
+    r.useTrump(1, 'bullseye');
+    standAll(r);
+    r.dealer.stood = true;
+    r.phase = 'done';
+    const res = r.settle();
+    expect(res[0].outcome).toBe(1);
+    expect(res[0].ret).toBe(20);
+    expect(res[1].ret).toBe(40);
+  });
+
+  it('the dealer lightens a bust that Recall would not save', () => {
+    const r = table({ dealer: [6, 11, 5, 3, 1], dealerTrumps: ['recall', 'lighten'] });
+    r.dealer.trumps.splice(2);
+    standAll(r);
+    r.aggression = 1;
+    const ev = r.dealerStep();
+    expect(ev.some((e) => e.t === 'trump' && e.id === 'lighten')).toBe(true);
+    expect(r.dealer.cards.slice(0, 4)).toEqual([6, 5, 3, 1]);
+  });
+});
+
 describe('Party Trump 21 — the house balance (seeded simulations)', () => {
-  // Long-run figures are in PX_RTP (rules.ts): strongest strategy 97.8% here and 98.2% at the
+  // Long-run figures are in PX_RTP (rules.ts): strongest strategy 97.8% here and 98.4% at the
   // single table; these shorter seeded runs keep the balance in check.
   it('ties go to the dealer and the dealer is dealt two trumps a round', () => {
     expect(PX.tiesToSeat).toBe(false);

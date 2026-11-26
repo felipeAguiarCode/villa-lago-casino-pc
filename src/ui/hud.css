@@ -2112,12 +2112,215 @@ input[type='range'] {
     filter 0.2s;
 }
 
-.trump:not([disabled]):active {
+.trump:not([disabled]):not(.off):active {
   transform: translateY(calc(-1 * var(--u))) scale(0.96);
 }
 
-.trump[disabled] {
+.trump[disabled],
+.trump.off {
   filter: grayscale(0.7) brightness(0.6);
+}
+
+/* a trump in the hand can be held to read it: no text selection or long-press menu */
+.trumprow .trump {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+.trumprow .trump.peeking {
+  transform: translateY(calc(-2.4 * var(--u))) scale(1.06);
+  filter: none;
+  box-shadow:
+    0 calc(1.4 * var(--u)) calc(2.4 * var(--u)) rgba(0, 0, 0, 0.6),
+    0 0 calc(2.6 * var(--u)) rgba(255, 225, 140, 0.75);
+}
+
+/* held: the enlarged card and what it does */
+.trump-peek {
+  position: absolute;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: calc(2.4 * var(--u));
+  width: calc(68 * var(--u));
+  padding: calc(2.4 * var(--u));
+  border-radius: calc(2.4 * var(--u));
+  background: linear-gradient(170deg, rgba(40, 30, 58, 0.97), rgba(14, 10, 22, 0.97));
+  border: calc(0.4 * var(--u)) solid #d6b46a;
+  box-shadow:
+    0 calc(1.6 * var(--u)) calc(4 * var(--u)) rgba(0, 0, 0, 0.7),
+    0 0 calc(3 * var(--u)) rgba(214, 180, 106, 0.35);
+  pointer-events: none;
+}
+
+.trump-peek[data-rarity='uncommon'] {
+  border-color: #c9d3e2;
+}
+
+.trump-peek[data-rarity='rare'] {
+  border-color: #ffd76a;
+  box-shadow:
+    0 calc(1.6 * var(--u)) calc(4 * var(--u)) rgba(0, 0, 0, 0.7),
+    0 0 calc(4 * var(--u)) rgba(255, 210, 100, 0.6);
+}
+
+.trump-peek .trump.big {
+  flex: 0 0 auto;
+  width: calc(19 * var(--u));
+  height: calc(25 * var(--u));
+  padding: calc(2.4 * var(--u)) calc(0.8 * var(--u)) calc(1.8 * var(--u));
+}
+
+.trump-peek .trump.big .tr-ic {
+  width: calc(10.5 * var(--u));
+  height: calc(10.5 * var(--u));
+}
+
+.trump-peek .trump.big .tr-ic em {
+  font-size: calc(9.4 * var(--u));
+}
+
+.trump-peek .trump.big .tr-name {
+  font-size: calc(3.8 * var(--u));
+}
+
+.tp-text {
+  display: flex;
+  flex-direction: column;
+  gap: calc(0.8 * var(--u));
+  min-width: 0;
+}
+
+.tp-text b {
+  font: 800 calc(4.6 * var(--u)) / 1.05 'Cinzel';
+  color: #fff3cf;
+}
+
+.tp-text i {
+  font: italic 600 calc(2.8 * var(--u)) / 1.1 'Barlow Condensed';
+  letter-spacing: 0.06em;
+  color: #a9b3c2;
+  text-transform: uppercase;
+}
+
+.trump-peek[data-rarity='rare'] .tp-text i {
+  color: #ffd76a;
+}
+
+.tp-text p {
+  margin: calc(0.4 * var(--u)) 0 0;
+  font: 500 calc(3.6 * var(--u)) / 1.25 'Barlow Condensed';
+  color: #f3ead2;
+}
+
+.tp-text small {
+  margin-top: calc(0.6 * var(--u));
+  font: 700 calc(2.6 * var(--u)) / 1.1 'Barlow Condensed';
+  letter-spacing: 0.08em;
+  color: #e6c27a;
+  text-transform: uppercase;
+}
+
+/* a trump card flying out of the shoe (a bonus with a hit) */
+.trump-fly {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(13 * var(--u));
+  height: calc(17 * var(--u));
+  z-index: 30;
+  pointer-events: none;
+}
+
+.trump-back {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(1.6 * var(--u));
+  background:
+    repeating-linear-gradient(45deg, rgba(214, 180, 106, 0.16) 0 calc(0.8 * var(--u)), transparent calc(0.8 * var(--u)) calc(1.6 * var(--u))),
+    linear-gradient(165deg, #3e2f55, #1a1226);
+  border: calc(0.45 * var(--u)) solid #d6b46a;
+  box-shadow: 0 calc(0.8 * var(--u)) calc(1.6 * var(--u)) rgba(0, 0, 0, 0.6);
+}
+
+.trump-fly.shine .trump {
+  animation: trump-shine 0.9s ease-out;
+}
+
+@keyframes trump-shine {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(255, 230, 150, 0.9),
+      0 0 calc(8 * var(--u)) rgba(255, 220, 120, 0.95);
+  }
+  100% {
+    box-shadow:
+      0 0 0 calc(5 * var(--u)) rgba(255, 230, 150, 0),
+      0 0 calc(3 * var(--u)) rgba(255, 220, 120, 0.4);
+  }
+}
+
+.trump-call {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 1.6 * var(--u));
+  transform: translateX(-50%) scale(0.6);
+  transform-origin: 50% 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  white-space: nowrap;
+  padding: calc(1.2 * var(--u)) calc(3 * var(--u)) calc(1.4 * var(--u));
+  border-radius: calc(2 * var(--u));
+  background: linear-gradient(180deg, rgba(36, 26, 52, 0.94), rgba(14, 10, 22, 0.94));
+  border: calc(0.35 * var(--u)) solid #d6b46a;
+  box-shadow:
+    0 calc(0.8 * var(--u)) calc(2.4 * var(--u)) rgba(0, 0, 0, 0.6),
+    0 0 calc(2.4 * var(--u)) rgba(255, 210, 100, 0.35);
+  animation: trump-call 0.35s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+.trump-call b {
+  font: 900 calc(4.8 * var(--u)) / 1 'Cinzel';
+  letter-spacing: 0.08em;
+  color: #ffe39a;
+  text-shadow:
+    0 0 calc(1.6 * var(--u)) rgba(255, 210, 100, 0.9),
+    0 calc(0.4 * var(--u)) calc(0.8 * var(--u)) rgba(0, 0, 0, 0.8);
+}
+
+.trump-call small {
+  margin-top: calc(0.6 * var(--u));
+  font: 700 calc(2.6 * var(--u)) / 1 'Barlow Condensed';
+  letter-spacing: 0.06em;
+  color: #fff3cf;
+  text-shadow: 0 calc(0.3 * var(--u)) calc(0.8 * var(--u)) rgba(0, 0, 0, 0.9);
+}
+
+@keyframes trump-call {
+  from {
+    transform: translateX(-50%) translateY(calc(3 * var(--u))) scale(0.35);
+    opacity: 0;
+  }
+}
+
+/* Barrier: the shield over a hand that blocked an attack */
+.trump-blocked {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 30;
+  pointer-events: none;
+  font: 900 calc(4.6 * var(--u)) / 1 'Cinzel';
+  letter-spacing: 0.1em;
+  color: #cfefff;
+  text-shadow:
+    0 0 calc(1.6 * var(--u)) rgba(120, 200, 255, 0.95),
+    0 calc(0.4 * var(--u)) calc(0.8 * var(--u)) rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
 }
 
 .trump .tr-ic {
@@ -2234,6 +2437,22 @@ input[type='range'] {
   border-radius: calc(0.6 * var(--u));
   background: linear-gradient(165deg, #3e2f55, #1a1226);
   border: calc(0.35 * var(--u)) solid #d6b46a;
+}
+
+/* the dealer's Barrier, while it stands */
+.t21-dtrumps .t21-shield {
+  width: calc(5.6 * var(--u));
+  height: calc(5.6 * var(--u));
+  display: grid;
+  place-items: center;
+  margin-left: calc(0.6 * var(--u));
+  filter: drop-shadow(0 0 calc(1 * var(--u)) rgba(140, 210, 255, 0.9));
+}
+
+.t21-dtrumps .t21-shield svg {
+  width: 100%;
+  height: 100%;
+  fill: #bfe6ff;
 }
 
 /* ---------------------------------------------------------------- Trump 21: rarities, codex, next card */

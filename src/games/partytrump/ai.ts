@@ -33,7 +33,7 @@
  *                  at or over the target).
  */
 import type { Rng } from '../../core/rng';
-import { MAX_TRUMPS, T21, type Duel, type TrumpId } from '../trump21/rules';
+import { BULLSEYE_EXTRA, isAttackTrump, MAX_TRUMPS, T21, type Duel, type TrumpId } from '../trump21/rules';
 import { mindsetSideBet, mindsetStake, type AiMemory, type Mindset } from '../partybj/mindset';
 import { callValue, isAttack, isTargetTrump, movedTarget, PX, targetMove, wildTargets, type PartyDuel, type SeatResult } from './rules';
 
@@ -54,6 +54,8 @@ export interface DealerInfo {
   /** Trumps the dealer holds. */
   trumps: number;
   blinded: boolean;
+  /** The dealer's Barrier is up: the next attack trump on it is wasted. */
+  barrier?: boolean;
   /** Chance it plays a fitting trump (default: the party table's). */
   aggression?: number;
 }
@@ -87,15 +89,18 @@ export type AiPick = 'hit' | 'stand' | { trump: TrumpId; on: 'self' | 'dealer' }
 const KEEP: Partial<Record<TrumpId, number>> = {
   precision: 0.22,
   feather: 0.08,
+  call1: 0.06,
   call2: 0.08,
   call3: 0.08,
   call4: 0.08,
   call5: 0.08,
   call6: 0.08,
   call7: 0.08,
+  call8: 0.1,
   twin: 0.1,
   redraw: 0.12,
   recall: 0.3,
+  lighten: 0.2,
   glimpse: 0.04,
   foresight: 0.05,
   reshuffle: 0.02,
@@ -122,11 +127,21 @@ const KEEP: Partial<Record<TrumpId, number>> = {
   shatter: 0.03,
   pickpocket: 0.06,
   blindfold: 0.05,
+  heist: 0.12,
+  gift: 0.12,
+  overload: 0.14,
+  rewind: 0.12,
+  barrier: 0.05,
   guard: 0.18,
   fortress: 0.36,
   stakes: 0.22,
   bounty: 0.22,
+  tiebreak: 0.12,
+  bullseye: 0.1,
+  reinforce: 0.03,
 };
+/** What one new trump in hand is worth, in stakes (Reinforce). */
+const NEW_TRUMP = 0.08;
 /** Keep value of any trump: the table above; other target trumps 0.2 (Wild Line 0.12); else 0.1. */
 const keepOf = (id: TrumpId) => KEEP[id] ?? (isTargetTrump(id) ? (targetMove(id)!.kind === 'wild' ? 0.12 : 0.2) : 0.1);
 /**
@@ -138,7 +153,7 @@ const keepOf = (id: TrumpId) => KEEP[id] ?? (isTargetTrump(id) ? (targetMove(id)
  * 2 → 97.8%; from 2.5 up the hands clog and the return collapses).
  */
 export const AI_TUNE = { keepMul: 2, fullMul: 0.5, hitBonus: 0.015, calcHit: 0, calcAttack: 1, calcStake: 1, slot: 0.12, harm: 0.03, lean: 0.12, pushHit: 0.12, safeStand: 0.1, duelGap: 4 };
-const DEFENSIVE = (id: TrumpId) => isTargetTrump(id) || id === 'recall' || id === 'guard' || id === 'fortress';
+const DEFENSIVE = (id: TrumpId) => isTargetTrump(id) || id === 'recall' || id === 'lighten' || id === 'guard' || id === 'fortress';
 
 // ---------------------------------------------------------------------------- the model
 
@@ -293,6 +308,8 @@ interface Ctx {
   H: number;
   /** EV (in stakes) per unit of win chance. */
   k: number;
+  /** Trumps in hand (with the one being weighed). */
+  held: number;
 }
 
 const visSum = (d: DealerInfo) => d.visible.reduce((a, b) => a + b, 0);
@@ -322,6 +339,7 @@ function makeCtx(hand: number[], target: number, dealer: DealerInfo, table: Tabl
     S,
     H,
     k: table.stakes * (1 + table.winMult - refund),
+    held: 0,
   };
 }
 
@@ -387,7 +405,34 @@ function afterTrump(c: Ctx, id: TrumpId): number | null {
   const vis = visSum(dealer);
   const dealerLast = dealer.visible[dealer.visible.length - 1] ?? 0;
   const dealerCards = dealer.visible.length + dealer.hidden;
+  // the dealer's Barrier would stop it: wasted
+  if (dealer.barrier && isAttackTrump(id)) return null;
+  /** Value of the seat at total `np` against the dealer's visible sum `dv` (and `extra` forced cards). */
+  const against = (np: number, dv: number, extra = 0) => {
+    const v = m.values(Ts, m.dstate(dv, dealer.hidden, dealer.target, dealer.standAt, dealer.draws, extra));
+    return Math.max(at(v.S, np), np < Ts ? at(v.H, np) : 0);
+  };
   switch (id) {
+    case 'lighten':
+      return c.hand.length < 2 ? null : at(V, p - Math.max(...c.hand));
+    case 'heist':
+      if (dealerCards < 2 || !dealer.visible.length) return null;
+      return against(p + dealerLast, vis - dealerLast);
+    case 'gift':
+      if (c.hand.length < 2) return null;
+      return against(p - c.last, vis + c.last);
+    case 'overload':
+      return against(p, vis, 2);
+    case 'rewind':
+      if (dealerCards < 2 || !dealer.visible.length || c.hand.length < 2) return null;
+      return against(p - c.last, vis - dealerLast);
+    case 'barrier':
+      // keeps the dealer's attacks off the hand (it sees how many trumps the dealer holds)
+      return dealer.blinded ? c.base : c.base + (0.006 * Math.min(5, dealer.trumps)) / Math.max(0.5, c.k);
+    case 'reinforce': {
+      const room = MAX_TRUMPS - (c.held - 1);
+      return c.base + (Math.min(2, Math.max(0, room)) * NEW_TRUMP) / Math.max(0.5, c.k);
+    }
     case 'precision':
       return pickDraw(c, true);
     case 'feather':
@@ -573,6 +618,9 @@ function decide(c: Ctx, trumps: TrumpId[], bend: Bend, mind: Mindset, mem: AiMem
   if (!table.guard && !table.fortress) consider('guard', k * (1 - pw) * 0.5);
   consider('fortress', k * (1 - pw) * (1 - refund));
   if (pw >= bend.bountyMin) consider('bounty', k * pw);
+  // Tiebreaker: the ties the dealer would take; Bullseye: standing right on the target
+  if (!table.tiesWin) consider('tiebreak', c.k * at(c.m.final(c.ds), c.ds.T - c.Ts + c.p));
+  if (c.p === c.Ts) consider('bullseye', k * BULLSEYE_EXTRA * pw);
   if (bend.raise !== 'never') {
     const gain = evStake;
     if (gain > 0 || (bend.raise === 'borderline' && gain > -0.05)) consider('stakes', bend.raise === 'borderline' ? Math.max(gain, 0) + bend.keep('stakes', c) + 0.005 : gain);
@@ -597,6 +645,7 @@ export function aiTurn(
   rng: Rng,
 ): AiPick {
   const c = makeCtx(hand, target, dealer, table);
+  c.held = trumps.length;
   const bend = bendFor(mind, mem, trumps, rng);
   const pick = decide(c, trumps, bend, mind === 'hunch' ? 'calculated' : mind, mem);
   if (mind !== 'hunch' || rng(4) !== 0) return pick;
@@ -654,7 +703,7 @@ export function seatView(r: PartyDuel, seat: number, canRaise: boolean): SeatVie
       winMult: s.winMult,
       own: s.own,
       freezeDraws: 1,
-      tiesWin: PX.tiesToSeat,
+      tiesWin: PX.tiesToSeat || s.tieWin,
     },
   };
 }
@@ -716,6 +765,7 @@ export function duelPick(d: Duel, mind: Mindset, mem: AiMemory, rng: Rng): AiPic
     draws: d.frozen.dealer ? 0 : Infinity,
     trumps: d.trumps.dealer.length,
     blinded: d.blinded,
+    barrier: d.barrier.dealer,
     aggression: d.aggression,
   };
   const table: TableInfo = {
@@ -730,7 +780,7 @@ export function duelPick(d: Duel, mind: Mindset, mem: AiMemory, rng: Rng): AiPic
     own: null,
     sharedTarget: true,
     freezeDraws: 0,
-    tiesWin: T21.tiesToPlayer,
+    tiesWin: T21.tiesToPlayer || d.tieWin,
   };
   return aiTurn(mind, d.player, d.target, d.trumps.player, dealer, table, mem, rng);
 }

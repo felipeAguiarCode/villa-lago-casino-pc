@@ -14,6 +14,7 @@ import { newMemory } from '../partybj/mindset';
 import { duelPick } from '../partytrump/ai';
 import { Duel, isTargetTrump, rarityOf, TRUMPS, WILD_MAX, WILD_MIN, type DuelEvent, type Side, type TrumpId } from './rules';
 import { cardDataURL } from '../../table/cardFaces';
+import { bindTrump, centreIn, flyBonusTrump, trumpInner, type TrumpCardInfo } from './trumpUi';
 
 addStrings(
   {
@@ -116,6 +117,31 @@ addStrings(
     'tr.fortress.d': 'If you lose this round, your whole bet comes back',
     'tr.bounty': 'Bounty',
     'tr.bounty.d': 'A win this round pays 2 to 1',
+    'tr.call1': 'Call 1',
+    'tr.call1.d': 'Draw the 1, if it is still in the deck',
+    'tr.call8': 'Call 8',
+    'tr.call8.d': 'Draw the 8, if it is still in the deck',
+    'tr.lighten': 'Lighten',
+    'tr.lighten.d': 'Return your highest card to the deck',
+    'tr.heist': 'Heist',
+    'tr.heist.d': "Take your opponent's last card into your hand",
+    'tr.gift': 'Gift',
+    'tr.gift.d': 'Give your last card to the dealer',
+    'tr.overload': 'Overload',
+    'tr.overload.d': 'The dealer takes the top two cards of the deck',
+    'tr.rewind': 'Rewind',
+    'tr.rewind.d': 'You and the dealer each return your last card to the deck',
+    'tr.barrier': 'Barrier',
+    'tr.barrier.d': "Blocks your opponent's next attack trump this round",
+    'tr.tiebreak': 'Tiebreaker',
+    'tr.tiebreak.d': 'Ties go to you this round',
+    'tr.bullseye': 'Bullseye',
+    'tr.bullseye.d': 'Win right on the target this round and it pays 3 to 1',
+    'tr.reinforce': 'Reinforce',
+    'tr.reinforce.d': 'Draw two new trump cards',
+    't21.bonusToast': '{name}: bonus trump! HIT again for your card',
+    't21.dealerBonus': 'A trump came out with the dealer\'s card',
+    't21.blocked': 'Barrier! {name} was blocked',
     'rar.common': 'Common',
     'rar.uncommon': 'Uncommon',
     'rar.rare': 'Rare',
@@ -135,7 +161,9 @@ addStrings(
       <h4>Winning</h4>
       <p>Closest to the <b>target</b> (21 unless a trump changes it) without going over wins 1:1. If both bust, the lower total wins. <b>Ties go to the dealer</b> (the house's edge).</p>
       <h4>Trump cards</h4>
-      <p>Each round you and the dealer get a trump card, and every card you draw has a chance to give you another (up to five, kept between rounds). Tap a trump to play it any time on your turn — there are {n} of them, common, uncommon and rare (gold border). The dealer plays trumps too, three turns in four when one fits; his hand also holds five, and a new one replaces his oldest.</p>
+      <p>Each round you and the dealer get a trump card (up to five, kept between rounds). Tap a trump to play it any time on your turn; <b>press and hold it to read what it does</b> without playing it. There are {n} of them, common, uncommon and rare (gold border).</p>
+      <p><b>Bonus trumps:</b> about one hit in five turns up a trump card instead of your card. It joins your hand with its own sound, the turn stays yours, and your next hit is a sure card, so the bonus never costs you your draw. The dealer's cards can bring a trump along with them too.</p>
+      <p>The dealer plays trumps too, three turns in four when one fits; his hand also holds five, and a new one replaces his oldest. A <b>Barrier</b> blocks the next attack trump played against its owner.</p>
       <p>Target trumps move the line anywhere from 15 to 30, and Wild Line draws it at random.</p>
       <h4>Hint</h4>
       <p>The light bulb shows the strongest move it finds, trumps included.</p>`,
@@ -238,6 +266,31 @@ addStrings(
     'tr.fortress.d': 'Se perder a rodada, a aposta inteira volta',
     'tr.bounty': 'Recompensa',
     'tr.bounty.d': 'Uma vitória nesta rodada paga 2 para 1',
+    'tr.call1': 'Chamar 1',
+    'tr.call1.d': 'Compra o 1, se ainda estiver no baralho',
+    'tr.call8': 'Chamar 8',
+    'tr.call8.d': 'Compra o 8, se ainda estiver no baralho',
+    'tr.lighten': 'Aliviar',
+    'tr.lighten.d': 'Devolve sua carta mais alta ao baralho',
+    'tr.heist': 'Furto',
+    'tr.heist.d': 'Pega a última carta do oponente para a sua mão',
+    'tr.gift': 'Presente',
+    'tr.gift.d': 'Dá a sua última carta ao dealer',
+    'tr.overload': 'Sobrecarga',
+    'tr.overload.d': 'O dealer pega as duas cartas do topo do baralho',
+    'tr.rewind': 'Rebobinar',
+    'tr.rewind.d': 'Você e o dealer devolvem a última carta ao baralho',
+    'tr.barrier': 'Barreira',
+    'tr.barrier.d': 'Bloqueia o próximo trunfo de ataque do oponente nesta rodada',
+    'tr.tiebreak': 'Desempate',
+    'tr.tiebreak.d': 'Empates são seus nesta rodada',
+    'tr.bullseye': 'Na Mosca',
+    'tr.bullseye.d': 'Vencer cravando o alvo nesta rodada paga 3 para 1',
+    'tr.reinforce': 'Reforço',
+    'tr.reinforce.d': 'Ganha dois trunfos novos',
+    't21.bonusToast': '{name}: trunfo bônus! PEÇA de novo para receber sua carta',
+    't21.dealerBonus': 'Saiu um trunfo com a carta do dealer',
+    't21.blocked': 'Barreira! {name} foi bloqueado',
     'rar.common': 'Comum',
     'rar.uncommon': 'Incomum',
     'rar.rare': 'Raro',
@@ -257,7 +310,9 @@ addStrings(
       <h4>Vitória</h4>
       <p>Quem chegar mais perto do <b>alvo</b> (21, a não ser que um trunfo mude) sem passar ganha 1:1. Se os dois estourarem, vence o total menor. <b>Empate é do dealer</b> (a vantagem da casa).</p>
       <h4>Cartas trunfo</h4>
-      <p>A cada rodada você e o dealer ganham um trunfo, e cada carta comprada pode dar outro (até cinco, guardados entre rodadas). Toque num trunfo para usá-lo no seu turno — são {n}, entre comuns, incomuns e raros (borda dourada). O dealer também usa trunfos, em três de cada quatro turnos em que um serve; a mão dele também guarda cinco, e um novo substitui o mais antigo.</p>
+      <p>A cada rodada você e o dealer ganham um trunfo (até cinco, guardados entre rodadas). Toque num trunfo para usá-lo no seu turno; <b>segure-o para ler o que ele faz</b> sem usá-lo. São {n}, entre comuns, incomuns e raros (borda dourada).</p>
+      <p><b>Trunfos bônus:</b> mais ou menos um pedido em cada cinco tira um trunfo no lugar da sua carta. Ele entra na sua mão com um som próprio, o turno continua seu e o próximo pedido é carta garantida, então o bônus nunca custa o seu saque. As cartas do dealer também podem trazer um trunfo junto.</p>
+      <p>O dealer também usa trunfos, em três de cada quatro turnos em que um serve; a mão dele também guarda cinco, e um novo substitui o mais antigo. A <b>Barreira</b> bloqueia o próximo trunfo de ataque usado contra quem a jogou.</p>
       <p>Os trunfos de alvo levam a linha para qualquer ponto entre 15 e 30, e a Linha Louca a sorteia.</p>
       <h4>Dica</h4>
       <p>A lâmpada mostra a jogada mais forte que encontra, trunfos incluídos.</p>`,
@@ -274,16 +329,45 @@ const DIE_SVG =
   [pip(7.8, 7.8), pip(16.2, 7.8), pip(12, 12), pip(7.8, 16.2), pip(16.2, 16.2)].join('') +
   '"/></svg>';
 
+/** Art of the newer trumps, drawn like the shared 24×24 icons. */
+const art = (d: string, evenodd = false) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path${evenodd ? ' fill-rule="evenodd"' : ''} d="${d}"/></svg>`;
+const NEW_ART = {
+  // an arrow lifting a card off the hand
+  lighten: art('M12 1.8l6.4 6.9H14v6.6h-4V8.7H5.6zM4 17h16v2.6H4zM6.6 20.9h10.8v1.6H6.6z'),
+  // a magnet pulling the card over
+  heist: art('M4 8.2h5v3.1a3 3 0 0 0 6 0V8.2h5v3.1a8 8 0 0 1-16 0zM4 3h5v4H4zM15 3h5v4h-5z'),
+  // a gift box with its bow
+  gift: art('M3 8.4h8v3.8H3zM13 8.4h8v3.8h-8zM4 13.4h7v7.8H4zM13 13.4h7v7.8h-7zM12 8.2c-1.6-4-6.2-4.6-5.6-1.6C6.9 8.2 12 8.2 12 8.2zM12 8.2c1.6-4 6.2-4.6 5.6-1.6C17.1 8.2 12 8.2 12 8.2z'),
+  // two bolts: two cards forced on the dealer
+  overload: art('M9 1.5 2.5 12.8h4.3l-1.7 9.7 7.5-12.4H8.3zM18.5 1.5 12 12.8h4.3l-1.7 9.7 7.5-12.4h-4.3z'),
+  // rewind
+  rewind: art('M11.6 5v14L2 12zM21.6 5v14L12 12z'),
+  // a brick wall
+  barrier: art('M2 3.6h9.2V8H2zM12.8 3.6H22V8h-9.2zM2 9.8h4.4v4.4H2zM8 9.8h8v4.4H8zM17.6 9.8H22v4.4h-4.4zM2 16h9.2v4.4H2zM12.8 16H22v4.4h-9.2z'),
+  // the scales
+  tiebreak: art('M11 3h2v15.4h-2zM7 19h10v2.4H7zM3.4 5.8h17.2v1.8H3.4zM1.6 13.6 5 7.4l3.4 6.2a3.4 3.4 0 0 1-6.8 0zM15.6 13.6 19 7.4l3.4 6.2a3.4 3.4 0 0 1-6.8 0z'),
+  // a target with an arrow struck dead centre (Precision's target has no arrow)
+  bullseye:
+    '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path fill-rule="evenodd" d="M10 5.5a8.5 8.5 0 1 0 0 17a8.5 8.5 0 1 0 0-17zM10 8a6 6 0 1 0 0 12a6 6 0 1 0 0-12zM10 10.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7z"/>' +
+    '<path d="M9.3 13.3 18.9 3.7l1.4 1.4-9.6 9.6z M17.6 1.6l.9 2.6 2.6.9 2.1-2.1-2.3-.7-.7-2.3z"/></svg>',
+  // a card with a plus: new trumps
+  reinforce: art('M5 2h14v20H5zM7.2 4.2v15.6h9.6V4.2zM11 8h2v3h3v2h-3v3h-2v-3H8v-2h3z', true),
+};
+
 const TRUMP_ICON: Record<TrumpId, { icon?: IconName; text?: string; svg?: string }> = {
   glimpse: { icon: 'eye' },
   precision: { icon: 'target' },
   feather: { icon: 'feather' },
+  call1: { text: '1' },
   call2: { text: '2' },
   call3: { text: '3' },
   call4: { text: '4' },
   call5: { text: '5' },
   call6: { text: '6' },
   call7: { text: '7' },
+  call8: { text: '8' },
+  lighten: { svg: NEW_ART.lighten },
   twin: { icon: 'twin' },
   redraw: { icon: 'cycle' },
   recall: { icon: 'redo' },
@@ -316,6 +400,14 @@ const TRUMP_ICON: Record<TrumpId, { icon?: IconName; text?: string; svg?: string
   fortress: { icon: 'castle' },
   stakes: { icon: 'chips' },
   bounty: { icon: 'crown' },
+  heist: { svg: NEW_ART.heist },
+  gift: { svg: NEW_ART.gift },
+  overload: { svg: NEW_ART.overload },
+  rewind: { svg: NEW_ART.rewind },
+  barrier: { svg: NEW_ART.barrier },
+  tiebreak: { svg: NEW_ART.tiebreak },
+  bullseye: { svg: NEW_ART.bullseye },
+  reinforce: { svg: NEW_ART.reinforce },
 };
 
 /** A trump card's face art (an icon, a number, or its own SVG). */
@@ -351,7 +443,7 @@ export class Trump21View extends TableGame {
         `<div class="codex-row" data-rarity="${tr.rarity}"><span class="trump mini" data-rarity="${tr.rarity}"><span class="tr-ic">${trumpFace(tr.id)}</span></span>` +
         `<span><b>${this.trumpName(tr.id)}</b> <i>${t(`rar.${tr.rarity}`)}${tr.dealer ? ` · ${t('t21.dealerOnly')}` : ''}</i><br>${t(`tr.${tr.id}.d`)}</span></div>`,
     ).join('');
-    return `${t('t21.rules', { n: TRUMPS.length })}<h4>${t('t21.codex')}</h4><div class="codex">${rows}</div>`;
+    return `${t('t21.rules', { n: TRUMPS.length })}<h4>${t('t21.codex')}</h4><p>${t('tu.hold')}</p><div class="codex">${rows}</div>`;
   }
 
   protected spotDefs(): SpotDef[] {
@@ -436,6 +528,13 @@ export class Trump21View extends TableGame {
     return t(`tr.${id}`);
   }
 
+  /** A trump's card and what it does (for the held card and the bonus flight). */
+  private trumpInfo(id: TrumpId): TrumpCardInfo {
+    const dealer = TRUMPS.find((x) => x.id === id)?.dealer;
+    return { face: trumpFace(id), name: this.trumpName(id), desc: t(`tr.${id}.d`), rarity: rarityOf(id), tag: dealer ? t('t21.dealerOnly') : undefined };
+  }
+
+  /** The player's trumps: a tap plays one on your turn, a press held shows what it does. */
   private renderTrumps() {
     const el = this.rowEl;
     if (!el) return;
@@ -447,27 +546,38 @@ export class Trump21View extends TableGame {
         b.dataset.id = id;
         b.dataset.rarity = rarityOf(id);
         b.dataset.i = String(i);
-        b.innerHTML = `<span class="tr-ic">${trumpFace(id)}</span><span class="tr-name">${this.trumpName(id)}</span>`;
-        b.title = t(`tr.${id}.d`);
-        const usable = this.myTurn && this.duel.canUse('player', id) && (id !== 'stakes' || this.g.wallet.canAfford(this.spots.get('bet').amount));
-        b.disabled = !usable;
-        b.onclick = () => {
-          if (!usable || !this.resolveTurn) return;
-          this.g.sfx.click();
-          const r = this.resolveTurn;
-          this.resolveTurn = null;
-          // the card lifts off the hand before its effect plays
-          b.classList.add('used');
-          setTimeout(() => r({ trump: id }), 260);
-        };
+        b.innerHTML = trumpInner({ face: trumpFace(id), name: this.trumpName(id) });
+        const usable = () => this.myTurn && !!this.resolveTurn && this.duel.canUse('player', id) && (id !== 'stakes' || this.g.wallet.canAfford(this.spots.get('bet').amount));
+        bindTrump(b, {
+          host: this.g.hud.root,
+          info: () => this.trumpInfo(id),
+          canPlay: usable,
+          onPeek: () => this.g.sfx.trumpLift(),
+          play: () => {
+            const r = this.resolveTurn;
+            if (!r) return;
+            this.g.sfx.click();
+            this.resolveTurn = null;
+            // the card lifts off the hand before its effect plays
+            b.classList.add('used');
+            setTimeout(() => r({ trump: id }), 260);
+          },
+        });
         return b;
       }),
     );
     if (this.dealerPin) {
       const n = this.duel.trumps.dealer.length;
-      this.dealerPin.el.innerHTML = n ? `<small>${t('t21.dealerCards')}</small><b>${'<i></i>'.repeat(n)}</b>` : '';
-      this.dealerPin.show(n > 0);
+      // the dealer's Barrier, while it stands
+      const shield = this.duel.barrier.dealer ? `<em class="t21-shield">${trumpFace('barrier')}</em>` : '';
+      this.dealerPin.el.innerHTML = n || shield ? `<small>${t('t21.dealerCards')}</small><b>${'<i></i>'.repeat(n)}${shield}</b>` : '';
+      this.dealerPin.show(n > 0 || !!shield);
     }
+  }
+
+  /** Animation speed (the sounds that run on their own clock follow it). */
+  private get speed() {
+    return Math.max(0.25, gsap.globalTimeline.timeScale());
   }
 
   /** Shows the top card of the deck while the player knows it (Foresight). */
@@ -640,15 +750,19 @@ export class Trump21View extends TableGame {
             await hud.banner(this.trumpName(e.id).toUpperCase(), t('t21.dealerTrump', { name: this.trumpName(e.id) }), 'small lose', 1100);
           } else {
             hud.toast(t(`tr.${e.id}.d`), 1600);
-            if (e.id === 'guard') {
-              const pz = this.g.stage.screenToTable(0.5, V.player).z;
-              fx.glow(new THREE.Vector3(0, 0, pz), 2.4, 1.6, 1.4, '#8fd0ff');
-            }
+            const pz = this.g.stage.screenToTable(0.5, V.player).z;
+            if (e.id === 'guard' || e.id === 'barrier') fx.glow(new THREE.Vector3(0, 0, pz), 2.4, 1.6, 1.4, '#8fd0ff');
+            if (e.id === 'tiebreak' || e.id === 'bullseye') fx.glow(new THREE.Vector3(0, 0, pz), 2.4, 1.6, 1.4, '#ffd76a');
           }
           this.renderTrumps();
           break;
         }
         case 'gain': {
+          if (e.bonus) {
+            // a trump card out of the deck with a hit: it flies in before it joins the hand
+            await this.bonusFlight(e.side, e.id);
+            break;
+          }
           this.renderTrumps();
           if (e.side === 'player') {
             if (rarityOf(e.id) === 'rare') this.g.sfx.win(false);
@@ -656,6 +770,26 @@ export class Trump21View extends TableGame {
             const last = this.rowEl?.lastElementChild as HTMLElement | null;
             last?.classList.add('fresh');
           }
+          break;
+        }
+        case 'move': {
+          // Heist / Gift: the card slides across to its new hand, face up
+          sfx.play('fan', { vol: 0.6 });
+          const c = this.c3.get(e.value);
+          await Promise.all([this.relayoutRow('player'), this.relayoutRow('dealer')]);
+          if (c && !c.faceUp) await flipCard(c, { dur: 0.35 });
+          this.shown.add(e.value);
+          this.updateBubbles();
+          break;
+        }
+        case 'blocked': {
+          // a Barrier takes the hit
+          sfx.barrier();
+          const z = this.g.stage.screenToTable(0.5, e.side === 'player' ? V.player : V.dealer).z;
+          fx.glow(new THREE.Vector3(0, 0, z), 2.8, 1.6, 1.5, '#8fd0ff');
+          fx.burst(new THREE.Vector3(0, 0.25, z), 50, '#cfefff');
+          hud.toast(t('t21.blocked', { name: this.trumpName(e.id) }), 1700);
+          this.renderTrumps();
           break;
         }
         case 'stand':
@@ -692,6 +826,32 @@ export class Trump21View extends TableGame {
       }
     }
     this.updateNext();
+  }
+
+  /**
+   * A bonus trump from the deck. The player's flies out of the shoe, turns over with its sound and
+   * drops into its slot (the hand shows it once it lands); the dealer's goes face down to his pile.
+   */
+  private async bonusFlight(side: Side, id: TrumpId) {
+    const { sfx, hud } = this.g;
+    if (side === 'dealer') {
+      sfx.trumpDraw(rarityOf(id), true, this.speed);
+      await flyBonusTrump(this.g, { info: null, to: this.dealerPin?.el.querySelector('i:last-child') ?? this.dealerPin?.el ?? null, endScale: 0.32 });
+      this.renderTrumps();
+      this.dealerPin?.pop();
+      hud.toast(t('t21.dealerBonus'), 1300);
+      return;
+    }
+    this.renderTrumps();
+    const slot = (this.rowEl?.lastElementChild as HTMLElement | null) ?? null;
+    if (slot) slot.style.visibility = 'hidden';
+    sfx.trumpDraw(rarityOf(id), false, this.speed);
+    await flyBonusTrump(this.g, { info: this.trumpInfo(id), to: centreIn(this.g, slot) ? slot : null });
+    if (slot) {
+      slot.style.visibility = '';
+      slot.classList.add('fresh');
+    }
+    hud.toast(t('t21.bonusToast', { name: this.trumpName(id) }), 2200);
   }
 
   // ---------------------------------------------------------------- round
@@ -743,6 +903,8 @@ export class Trump21View extends TableGame {
         continue; // trumps don't end the turn
       }
       await this.applyEvents(pick === 'hit' ? d.hit('player') : d.stand('player'));
+      // a bonus trump came out instead of the card: still your turn, and your card is still to come
+      if (pick === 'hit' && d.lastHitBonus) continue;
       if (d.over) break;
       await wait(0.45);
       await this.applyEvents(d.dealerTurn());

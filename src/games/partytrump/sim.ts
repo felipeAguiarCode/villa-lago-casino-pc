@@ -79,6 +79,8 @@ export function simulateSingle(rounds: number, seed: number, mind: Policy = 'cal
       }
       if (typeof pick === 'object') pick = 'stand';
       d[pick]('player');
+      // a bonus trump came out instead of the card: still the player's turn
+      if (pick === 'hit' && d.lastHitBonus) continue;
       if (d.over) break;
       d.dealerTurn();
     }

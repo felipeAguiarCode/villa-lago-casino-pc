@@ -331,6 +331,81 @@ export class Sfx {
     setTimeout(() => out.disconnect(), 2600);
   }
 
+  // ---------------------------------------------------------------- trump cards (Trump 21)
+  /**
+   * A trump card coming out of the deck with a hit: a rising shimmer as it flies out, a soft snap
+   * as it turns over, then a quick run of glassy bells that lands on a chord. Uncommon cards ring
+   * brighter; a rare one climbs higher and sparkles. `faceDown`: the dealer's or a regular's, a
+   * quieter shimmer and the landing only. Timed to the flight in trump21/trumpUi.ts; `speed`
+   * follows the animation speed setting. Original, synthesized.
+   */
+  trumpDraw(rarity: 'common' | 'uncommon' | 'rare' = 'common', faceDown = false, speed = 1) {
+    if (!this.ready()) return;
+    const ctx = this.ctx!;
+    const k = 1 / Math.max(0.25, speed);
+    const t = ctx.currentTime + 0.01;
+    // the flight: noise swept up through a band-pass, and a faint rising sine under it
+    this.noise(t, 0.46 * k, faceDown ? 0.025 : 0.05, 'bandpass', 700, 2.2, 6500);
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(330, t);
+    o.frequency.exponentialRampToValueAtTime(990, t + 0.42 * k);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(faceDown ? 0.015 : 0.03, t + 0.2 * k);
+    g.gain.exponentialRampToValueAtTime(0.0006, t + 0.46 * k);
+    o.connect(g).connect(this.master!);
+    o.start(t);
+    o.stop(t + 0.5 * k);
+    if (faceDown) {
+      // it lands on the pile
+      this.noise(t + 0.5 * k, 0.04, 0.05, 'bandpass', 2200, 1.2);
+      this.tone(1568, t + 0.5 * k, 0.25, 'sine', 0.03);
+      return;
+    }
+    // the turn-over: a short snap and a low, soft body
+    const flip = t + 0.43 * k;
+    this.noise(flip, 0.035, 0.08, 'highpass', 2800, 0.8);
+    this.tone(196, flip, 0.16, 'sine', 0.09);
+    // the bells: a fast run up a pentatonic scale onto a held chord
+    const runs = {
+      common: [784, 880, 1047, 1319, 1568],
+      uncommon: [880, 1047, 1175, 1397, 1760],
+      rare: [1047, 1175, 1397, 1568, 2093, 2637],
+    };
+    const run = runs[rarity];
+    const at0 = t + 0.53 * k;
+    run.forEach((f, i) => {
+      const at = at0 + i * 0.05 * k;
+      this.tone(f, at, 0.42, 'sine', 0.065);
+      this.tone(f * 2.005, at, 0.16, 'triangle', 0.018);
+    });
+    const end = at0 + run.length * 0.05 * k;
+    const chord = rarity === 'rare' ? [1047, 1319, 1568, 2093] : [run[0], run[2], run[4]];
+    chord.forEach((f) => {
+      this.tone(f, end, 1.1, 'sine', 0.045);
+      this.tone(f * 1.003, end, 1.1, 'sine', 0.025);
+    });
+    if (rarity !== 'common') for (let i = 0; i < (rarity === 'rare' ? 10 : 4); i++) this.tone(2800 + Math.random() * 2400, end + 0.04 + i * 0.06, 0.3, 'sine', 0.018);
+  }
+
+  /** A trump card lifted to be read (held): a soft paper lift. */
+  trumpLift() {
+    if (!this.ready()) return;
+    const t = this.ctx!.currentTime;
+    this.noise(t, 0.09, 0.05, 'bandpass', 1800, 1.4, 3200);
+    this.tone(1175, t + 0.02, 0.12, 'sine', 0.025);
+  }
+
+  /** A Barrier stopping an attack: a glassy clang with a ring that falls away. */
+  barrier() {
+    if (!this.ready()) return;
+    const t = this.ctx!.currentTime;
+    this.noise(t, 0.06, 0.16, 'bandpass', 3400, 1.6);
+    [[620, 0.09, 0.7], [1490, 0.05, 0.45], [2310, 0.03, 0.3]].forEach(([f, v, d]) => this.tone(f, t, d, 'sine', v));
+    this.tone(180, t, 0.14, 'triangle', 0.08);
+  }
+
   // ---------------------------------------------------------------- slot machine (Poker Slots)
   /**
    * The reel motor: a low hum and the rush of the strips going round, until the returned function
