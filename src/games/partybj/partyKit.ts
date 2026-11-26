@@ -4,7 +4,7 @@
  * Each table keeps its own rules and seat geometry; this keeps them looking like one family.
  */
 import { addStrings, t } from '../../core/i18n';
-import { FONT, GOLD, INK, makeCanvas, smileArc, smileText } from '../../table/prints';
+import { FONT, GOLD, INK, makeCanvas, tablePrint } from '../../table/prints';
 import type { Hud, Pin } from '../../ui/hud';
 import type { AiProfile } from './rules';
 
@@ -33,15 +33,23 @@ addStrings(
 /** Seat colours from the player's left to right: green, red, blue (the player's, in the middle), gold, purple. */
 export const PARTY_COLORS = ['#5fd08a', '#ff6b5e', '#7cc4ff', '#f2cb62', '#c08bff'];
 
-/** Felt print: title, payout and a rule between two gold arcs, curved like the seats. */
+/**
+ * Felt print: title, payout and a rule between two gold arcs, curved like the seats. tablePrint
+ * grows the canvas when a long title's ends climb past its top.
+ */
 export function partyPrint(title: string, pays: string, rule: string): HTMLCanvasElement {
-  const { cv, g } = makeCanvas(1024, 360);
-  smileText(g, title, 512, 100, 900, FONT.title(54), GOLD, 6);
-  smileText(g, pays, 512, 166, 900, FONT.title(36), INK, 3);
-  smileArc(g, 512, 226, 900, 0.5, GOLD, 4);
-  smileArc(g, 512, 300, 900, 0.5, GOLD, 4);
-  smileText(g, rule, 512, 275, 900, FONT.title(28), GOLD, 4);
-  return cv;
+  return tablePrint(
+    [
+      { text: title, y: 100, R: 900, font: FONT.title(54), color: GOLD, spacing: 6 },
+      { text: pays, y: 166, R: 900, font: FONT.title(36), color: INK, spacing: 3 },
+      { text: rule, y: 275, R: 900, font: FONT.title(28), color: GOLD, spacing: 4 },
+    ],
+    360,
+    [
+      { y: 226, R: 900, half: 0.5 },
+      { y: 300, R: 900, half: 0.5 },
+    ],
+  );
 }
 
 /** Canvas pixels per table unit of a seat box, and the margin around the box (table units). */

@@ -28,15 +28,40 @@ vec3 vlBendNormal(vec3 n, vec3 p) {
 }
 `;
 
-function bendable(mat: THREE.MeshStandardMaterial, u: { uBend: { value: THREE.Vector2 } }) {
+/**
+ * The printed side of a card. The pool light that makes the dark felt glow lit the white paper at
+ * about 1.5× full white, deep in the tone mapper's shoulder: the face looked like it was shining and
+ * the thin red and black indexes washed out. FACE_GAIN brings the paper back to just under white
+ * (and balances the warm light, so the paper reads white rather than cream). FACE_LOD_BIAS samples
+ * a sharper mip level, so the indexes and pips stay crisp at the size a card has on screen.
+ * uFace is 0 while the front still shows the back texture (a card not yet known), which keeps the
+ * back's own look.
+ */
+const FACE_GAIN = 'vec3(0.66, 0.72, 0.84)';
+const FACE_LOD_BIAS = '-0.65';
+const FACE_MAP_FRAGMENT = /* glsl */ `
+#ifdef USE_MAP
+  vec4 sampledDiffuseColor = texture2D( map, vMapUv, ${FACE_LOD_BIAS} * uFace );
+  sampledDiffuseColor.rgb *= mix( vec3( 1.0 ), ${FACE_GAIN}, uFace );
+  diffuseColor *= sampledDiffuseColor;
+#endif
+`;
+
+type CardUniforms = { uBend: { value: THREE.Vector2 }; uFace: { value: number } };
+
+function bendable(mat: THREE.MeshStandardMaterial, u: CardUniforms, face = false) {
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uBend = u.uBend;
     sh.vertexShader = BEND_VERT_HEAD + sh.vertexShader;
     sh.vertexShader = sh.vertexShader
       .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nobjectNormal = vlBendNormal(objectNormal, position);')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed = vlBendPos(transformed);');
+    if (face) {
+      sh.uniforms.uFace = u.uFace;
+      sh.fragmentShader = 'uniform float uFace;\n' + sh.fragmentShader.replace('#include <map_fragment>', FACE_MAP_FRAGMENT);
+    }
   };
-  mat.customProgramCacheKey = () => 'vl-card-bend';
+  mat.customProgramCacheKey = () => (face ? 'vl-card-face' : 'vl-card-bend');
 }
 
 /** Shared geometries. The card lies in the XZ plane; the face points +Y; the top of the card is -Z. */
@@ -67,7 +92,7 @@ export class Card3D {
   readonly front: THREE.Mesh;
   readonly back: THREE.Mesh;
   readonly shadow: THREE.Mesh;
-  readonly u = { uBend: { value: new THREE.Vector2() } };
+  readonly u: CardUniforms = { uBend: { value: new THREE.Vector2() }, uFace: { value: 1 } };
   card: Card | null = null;
   /** Lightweight card (atlas face, no contact shadow) used by the shuffle show. */
   lite = false;
@@ -83,6 +108,11 @@ export class Card3D {
     this.back = new THREE.Mesh(GEO_BACK, backMat);
     this.front.renderOrder = 2;
     this.back.renderOrder = 2;
+    // a front that still shows a back texture (card not known yet) keeps the back's look
+    this.front.onBeforeRender = () => {
+      const map = (this.front.material as THREE.MeshStandardMaterial).map;
+      this.u.uFace.value = map?.userData.vlBack ? 0 : 1;
+    };
     this.obj.add(this.front, this.back);
     this.shadow = new THREE.Mesh(GEO_SHADOW, shadowMat);
     this.shadow.renderOrder = 1;
@@ -161,6 +191,7 @@ export class CardFactory {
   setBackCanvas(cv: HTMLCanvasElement) {
     const old = this.backTexture;
     this.backTexture = this.makeTex(cv);
+    this.backTexture.userData.vlBack = true;
     for (const m of this.backMats) {
       m.map = this.backTexture;
       m.needsUpdate = true;
@@ -207,7 +238,7 @@ export class CardFactory {
     const back = new THREE.MeshStandardMaterial({ map: this.backTexture, roughness: 0.38, metalness: 0, alphaTest: 0.5, alphaToCoverage: true });
     const shadow = new THREE.MeshBasicMaterial({ map: this.shadowTex, transparent: true, depthWrite: false, opacity: 0.5, color: 0x000000 });
     const c = new Card3D(this, front, back, shadow);
-    bendable(front, c.u);
+    bendable(front, c.u, true);
     bendable(back, c.u);
     this.backMats.add(back);
     c.setCard(card);
@@ -227,7 +258,7 @@ export class CardFactory {
     const c = new Card3D(this, front, back, this.liteShadow);
     c.lite = true;
     c.card = card;
-    bendable(front, c.u);
+    bendable(front, c.u, true);
     bendable(back, c.u);
     this.backMats.add(back);
     this.parent.add(c.obj);

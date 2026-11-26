@@ -45,6 +45,7 @@ export const PC_FRAMING: Record<string, Framing> = {
   partybj: { v0: 0.08, v1: 0.88, u0: -0.44, u1: 1.44, wide: true },
   coinflip: { v0: -0.04, v1: 0.76, u0: -0.08, u1: 1.08 },
   horses: { v0: -0.05, v1: 0.82, u0: -1.25, u1: 2.25, wide: true },
+  pokerslots: { v0: 0.3, v1: 0.78, u0: -0.04, u1: 1.04 },
   partyuth: { v0: -0.02, v1: 0.88, u0: -0.44, u1: 1.44, wide: true },
   vanunu: { v0: 0.08, v1: 0.84, u0: -0.24, u1: 1.24 },
   craps: { u0: -1.42, u1: 2.42, v0: 0.04, v1: 0.99, wide: true },

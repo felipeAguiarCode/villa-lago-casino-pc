@@ -37,6 +37,7 @@ import { RouletteView } from './games/roulette/view';
 import { PartyBlackjackView } from './games/partybj/view';
 import { CoinFlipView } from './games/coinflip/view';
 import { HorsesView } from './games/horses/view';
+import { PokerSlotsView } from './games/pokerslots/view';
 import { PartyUthView } from './games/partyuth/view';
 import { VanunuView } from './games/vanunu/view';
 import { CrapsView } from './games/craps/view';
@@ -298,6 +299,7 @@ export class App {
     this.games.set('partybj', new PartyBlackjackView(this.ctx));
     this.games.set('coinflip', new CoinFlipView(this.ctx));
     this.games.set('horses', new HorsesView(this.ctx));
+    this.games.set('pokerslots', new PokerSlotsView(this.ctx));
     this.games.set('partyuth', new PartyUthView(this.ctx));
     this.games.set('vanunu', new VanunuView(this.ctx));
     this.games.set('craps', new CrapsView(this.ctx));

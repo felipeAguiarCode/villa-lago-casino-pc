@@ -29,7 +29,9 @@ Marcas de baralho do PC (Veloce, VL Poker Series, Stallion, Royal Salon, Canarin
 
 Mesas novas do PC modeladas no código (sem assets externos): roda e pano da roleta europeia, moeda de ouro do Coin Flip, pista de tabuleiro e cavalinhos de brinquedo do Lucky Horses (`src/games/roulette`, `coinflip`, `horses`). High & Low, Red or Black e Pick a Number são jogos de cartas simples e genéricos; as regras e os pagamentos desta versão (contra a banca) são nossos.
 
-Teclas da faixa estilo máquina de cassino: feitas em CSS, sem imagens externas. Efeitos sonoros extras (moedas, sino, jackpot, roleta, moeda girando, fanfarra, galope, clique das teclas) sintetizados com WebAudio (`src/audio/sfx.ts`).
+Teclas da faixa estilo máquina de cassino: feitas em CSS, sem imagens externas. Efeitos sonoros extras (moedas, sino, jackpot, roleta, moeda girando, fanfarra, galope, clique das teclas, motor e paradas dos rolos, alavanca e teclas HOLD do Poker Slots) sintetizados com WebAudio (`src/audio/sfx.ts`).
+
+Poker Slots (PC): gabinete, letreiros de LED em matriz de pontos (fonte 5×7 própria, com os quatro naipes) e rolos em forma de tambor feitos em CSS e canvas, sem imagens externas; as cartas dos rolos usam as mesmas faces do jogo. Inspirado no visual genérico das máquinas caça-níquel de pôquer; não usa nome, logo ou arte de nenhuma máquina real.
 
 Criados para o jogo (sem assets externos): coringas e cartas numeradas do Trump 21, índices, naipes, ases e layout das cartas numeradas,
 verso das cartas (padrão "lago" + medalhão VL), fichas, impressões da mesa, ícones da HUD e

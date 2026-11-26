@@ -43,6 +43,7 @@ export const GAMES: GameInfo[] = [
   { id: 'videopoker', title: 'Video Poker', tagline: 'game.videopoker.tag', felt: ['#2348a0', '#0a1838'], art: ['Th', 'Jh', 'Qh', 'Kh', 'Ah'], ready: true },
   { id: 'doubledraw', title: 'Double Draw Poker', tagline: 'game.doubledraw.tag', felt: ['#2f5cae', '#0b1a3a'], art: ['As', 'jk', 'Ad'], ready: true },
   { id: 'slot3', title: 'Three Card Slots', tagline: 'game.slot3.tag', felt: ['#a3254f', '#3a0716'], art: ['As', 'Ks', 'Qs'], ready: true },
+  { id: 'pokerslots', title: 'Poker Slots', tagline: 'game.pokerslots.tag', felt: ['#c2410c', '#3a0703'], art: ['Jh', 'Qh', 'Kh', 'Ah'], ready: true },
   { id: 'manilhadraw', title: 'Manilha Draw', tagline: 'game.manilhadraw.tag', felt: ['#2f8a5c', '#0b2e1d'], art: ['7s', 'Qc', 'Qh'], ready: true },
   { id: 'manilhaholdem', title: "Manilha Hold'em", tagline: 'game.manilhaholdem.tag', felt: ['#3563a8', '#0c1a33'], art: ['Ac', '2d', '3s'], ready: true },
   { id: 'pifeexpress', title: 'Pife Express', tagline: 'game.pifeexpress.tag', felt: ['#a8782c', '#3a2706'], art: ['4h', '5h', '6h'], ready: true },

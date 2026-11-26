@@ -12,7 +12,7 @@
 
 ## Villa Lago Casino
 
-The game is set at the Villa Lago casino, whose symbol is **VL on a golden chip**. A widescreen 3D card casino for the computer, made with **three.js**: forty-six games against the dealer or the house, rich card animations, chips that fly and stack, and a big video-poker style HUD.
+The game is set at the Villa Lago casino, whose symbol is **VL on a golden chip**. A widescreen 3D card casino for the computer, made with **three.js**: forty-seven games against the dealer or the house, rich card animations, chips that fly and stack, and a big video-poker style HUD.
 
 > **Play chips only.** There is no real money, no real-money gambling and nothing to buy. Chips have no cash value. "Villa Lago" is an original name, not affiliated with any real casino.
 
@@ -36,6 +36,7 @@ The game is set at the Villa Lago casino, whose symbol is **VL on a golden chip*
 | Three Card Poker | Ante / Play, Pair Plus, **Lucky 6**, ante bonus, and six table modes: Classic, **Ultimate** (raise up to 3×), **Face Up** (one dealer card shown), **Prime** (colour bet), **Draw** (replace a card), **Hold'em** (shared cards) |
 | Party Three Card Poker | Three Card Poker with four regulars: Ante / Play, Pair Plus and the ante bonus, decisions in seat order, regulars who read the cards you turn face up |
 | Three Card Slots | Slot machine with three card reels, Mini Royal |
+| Poker Slots | A four-reel poker slot machine: each reel is a strip of the 52 cards and the four on the payline are paid as a four-card poker hand (Royal flush 1000 per coin). One losing spin in four lights the HOLD keys for the next spin at the same bet; 97.4% holding as the hint does, 79.5% never holding (exact, `src/games/pokerslots/sim.ts`) |
 | Video Blackjack | Machine blackjack with up to 5 hands played one by one in a circle around the dealer, coin meters, one split per hand |
 | Texas Hold'em Bonus | Flop 2×, turn and river bets, AA bonus up to 1000:1 |
 | Crazy 4 Poker | Super Bonus (four Aces 200:1), Queens Up, play 3× with Aces |
@@ -77,7 +78,7 @@ Every table opens with a cardistry show picked at random, never the same one twi
   - The **bankroll**, shared by every table, is shown large with the level, next to the Trophies, full-screen and settings buttons.
   - Mouse or keyboard: arrows choose a table and Enter plays it.
 - **Deck, Reset and Game Over.** The **Deck** screen picks the card backs: 25 classic patterns (diamond lattice, houndstooth, guilloché, arabesque…) in 20 colours, or each table's own colour. The backs are pattern only, with no emblem or picture (`src/table/backPatterns.ts`, `src/ui/deckMenu.ts`). **Reset** starts over with the starting bankroll after a confirmation. When the bankroll runs out between hands, the game returns to Game Select with **GAME OVER** and a new game starts with 5,000 chips (trophies are kept).
-- **Trophies** (`src/core/trophies.ts`, `src/ui/trophies.ts`). A PlayStation-style list of 159 trophies in bronze, silver, gold and one platinum.
+- **Trophies** (`src/core/trophies.ts`, `src/ui/trophies.ts`). A PlayStation-style list of 162 trophies in bronze, silver, gold and one platinum.
   - Career: hands played and levels.
   - Bankroll: balance milestones, big bets, a comeback won at the tables, the free refill.
   - Explorer: playing different tables.
@@ -97,6 +98,7 @@ Every table opens with a cardistry show picked at random, never the same one twi
   - At the tables with many places (Roulette, Lucky Horses, Pick a Number...) you choose a chip and click a place; a right click takes one back.
 - **Top bar in the corners.** The menu button, balance and level sit on the left; full screen and settings on the right. The menu opens from the top-left button.
 - **Side zones.** Paytables, the Three Card mode selector and the baccarat bead road sit on the left. Trump 21's trump cards sit on the right.
+- **Poker Slots cabinet** (`src/games/pokerslots/`). The machine stands in the middle with chasing bulbs, three dot-matrix displays (messages, won, credits) in a 5×7 LED font with the four suits, and a lever on its side that can be pulled or clicked. The reels are drawn on a canvas as drums: each card bends round the cylinder, the drum darkens toward its edges, the cards smear with motion blur at speed, and every reel kicks back, spins up, brakes onto its stop and settles with a damped bounce. The last reel keeps spinning and glows when a straight flush, a royal or four of a kind is one card away. The pictorial paytable sits on the left. Keys 1–4 hold, Space spins, and the reel motor, stops, lever and HOLD keys have their own synthesized sounds.
 - **Party tables.** Party Blackjack, Party Three Card, Party Ultimate Hold'em, Party Seven-Card Stud, Party Trump 21 and Party Lucky Horses seat four regulars drawn from a pool of 40 single-name characters, pun nicknames in the spirit of poker legends (`src/games/partybj/roster.ts`). A broke regular leaves and a new one sits in. Each hand, every regular draws a hidden mindset (calculated, aggressive, conservative, hybrid or hunch) weighted by temperament, streak and stack (`mindset.ts`); the player never sees it, only the play it produces.
 - **Deck brands per table** (`src/table/deckBrands.ts`). Each table deals from its own brand of deck, with a matching box: *Veloce* (red), *VL Poker Series* (black and gold), *Stallion* (western blue), *Royal Salon* (green), *Canarinho* (Brazilian yellow and green) and the house deck. Where there is room the box stands open with cards poking out and a ribbon of cards spread beside it. The card backs follow the Deck screen. The brands are original designs in the spirit of classic decks; no real trademark is used.
 - **Casino decor per table** (`src/table/decor.ts`, `decorKit.ts`). Each table has its own set of elegant pieces beside the play area, plus a placard with the table's name:
@@ -122,7 +124,7 @@ Every table opens with a cardistry show picked at random, never the same one twi
 ```bash
 npm install
 npm run dev          # http://127.0.0.1:5174
-npm run test         # 548 rule / payout / RTP / trophy tests
+npm run test         # 557 rule / payout / RTP / trophy tests
 npm run sim:showdown # Showdown Poker balance report → docs/showdown-balance.md
 npm run sim:abyss    # Abyss Poker balance report → docs/abyss-balance.md
 npm run sim:brazil   # Brazilian games balance report → docs/brazil-balance.md
@@ -142,4 +144,4 @@ Kenney *Casino Audio* (CC0, including the dice sounds), *Felt Backgrounds* by jb
 
 ### Português
 
-Versão para PC (tela cheia, widescreen) do cassino de cartas 3D feito com three.js: 46 jogos contra o dealer ou a banca (incluindo Roleta, Craps com dados de física real, Coin Flip, Lucky Horses, Poker Dice, Seven-Card Stud, Vanunu, Suit Poker e seis mesas Party com rivais de IA que mudam de mentalidade a cada mão), tela Press Start com baralho embaralhando e cartas piscando, menu de Baralho (25 padronagens × 20 cores), Zerar banca e Game Over, Game Select com preview de cada mesa e bankroll compartilhado em destaque, troféus no estilo PlayStation (159, com filtros por categoria e por mesa), mesa grande enquadrada por jogo, faixa de teclas de máquina de cassino embaixo, baralhos de marcas originais diferentes por mesa, efeitos sonoros de cassino e decoração diferente em cada mesa. A versão para celular está em [villa-lago-casino](https://github.com/felipeAguiarCode/villa-lago-casino). Somente fichas fictícias — sem dinheiro real. Rode com `npm install` e `npm run dev`.
+Versão para PC (tela cheia, widescreen) do cassino de cartas 3D feito com three.js: 47 jogos contra o dealer ou a banca (incluindo Roleta, Craps com dados de física real, Coin Flip, Lucky Horses, Poker Dice, Poker Slots com rolos de cartas e travas, Seven-Card Stud, Vanunu, Suit Poker e seis mesas Party com rivais de IA que mudam de mentalidade a cada mão), tela Press Start com baralho embaralhando e cartas piscando, menu de Baralho (25 padronagens × 20 cores), Zerar banca e Game Over, Game Select com preview de cada mesa e bankroll compartilhado em destaque, troféus no estilo PlayStation (162, com filtros por categoria e por mesa), mesa grande enquadrada por jogo, faixa de teclas de máquina de cassino embaixo, baralhos de marcas originais diferentes por mesa, efeitos sonoros de cassino e decoração diferente em cada mesa. A versão para celular está em [villa-lago-casino](https://github.com/felipeAguiarCode/villa-lago-casino). Somente fichas fictícias — sem dinheiro real. Rode com `npm install` e `npm run dev`.

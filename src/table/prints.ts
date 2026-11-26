@@ -111,9 +111,61 @@ export interface PrintLine {
   spacing?: number;
 }
 
-/** Generic felt print: smile-curved lines plus optional gold arcs. */
+/**
+ * Vertical extent of smileText's lettering: every glyph box, rotated with the curve. The ends of a
+ * wide line climb the circle, so their tops sit well above the centre's.
+ */
+function smileExtent(g: CanvasRenderingContext2D, text: string, baseY: number, R: number, font: string, spacing: number) {
+  g.save();
+  g.font = font;
+  const ms = [...text].map((ch) => g.measureText(ch));
+  g.restore();
+  const ws = ms.map((m) => m.width + spacing);
+  const total = ws.reduce((a, b) => a + b, 0) - spacing;
+  let acc = -total / 2;
+  let y0 = Infinity;
+  let y1 = -Infinity;
+  for (let i = 0; i < ms.length; i++) {
+    const w = ws[i] - spacing;
+    const th = (acc + w / 2) / R;
+    const oy = baseY - R + R * Math.cos(th);
+    const asc = ms[i].actualBoundingBoxAscent;
+    const desc = ms[i].actualBoundingBoxDescent;
+    const s = Math.sin(th);
+    const c = Math.cos(th);
+    // glyph box corners (local x across, y down) rotated by -th
+    for (const [x, y] of [[-w / 2, -asc], [w / 2, -asc], [-w / 2, desc], [w / 2, desc]]) {
+      const ry = x * -s + y * c;
+      y0 = Math.min(y0, oy + ry);
+      y1 = Math.max(y1, oy + ry);
+    }
+    acc += ws[i];
+  }
+  return { y0, y1 };
+}
+
+/**
+ * Generic felt print: smile-curved lines plus optional gold arcs. When the curved lettering would
+ * run past the canvas (a wide title's ends climb the arc), the canvas grows by the same amount at
+ * the top and the bottom, so the print keeps its place on the felt and nothing gets cut.
+ */
 export function tablePrint(lines: PrintLine[], h = 470, arcs: { y: number; R: number; half: number }[] = []): HTMLCanvasElement {
-  const { cv, g } = makeCanvas(1024, h);
+  const probe = makeCanvas(1, 1).g;
+  let top = Infinity;
+  let bottom = -Infinity;
+  for (const l of lines) {
+    const e = smileExtent(probe, l.text, l.y, l.R ?? 900, l.font, l.spacing ?? 2);
+    top = Math.min(top, e.y0);
+    bottom = Math.max(bottom, e.y1);
+  }
+  for (const a of arcs) {
+    top = Math.min(top, a.y - a.R + a.R * Math.cos(a.half) - 2);
+    bottom = Math.max(bottom, a.y + 2);
+  }
+  const margin = 4;
+  const pad = top > bottom ? 0 : Math.ceil(Math.max(0, margin - top, bottom - h + margin));
+  const { cv, g } = makeCanvas(1024, h + 2 * pad);
+  g.translate(0, pad);
   for (const a of arcs) smileArc(g, 512, a.y, a.R, a.half, GOLD, 4);
   for (const l of lines) smileText(g, l.text, 512, l.y, l.R ?? 900, l.font, l.color ?? INK, l.spacing ?? 2);
   return cv;

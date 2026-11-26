@@ -81,6 +81,13 @@ export const GAME_ICONS: Record<string, string> = {
       text(41, 36, '7', 14, ACC) +
       `<rect x="14" y="45" width="30" height="5" rx="2.5" ${INK}/><rect x="53" y="18" width="4" height="22" rx="2" ${ME}/><circle cx="55" cy="15" r="5" ${ACC}/>`,
   ),
+  pokerslots: svg(
+    `<rect x="5" y="10" width="46" height="46" rx="6" ${ME}/><rect x="9" y="19" width="38" height="22" rx="2" ${INK}/>` +
+      [14, 23, 33, 42].map((x) => `<rect x="${x - 3.6}" y="22" width="7.2" height="16" rx="1.3" ${ACC}/>`).join('') +
+      `<rect x="8" y="29.4" width="40" height="1.6" fill="#e5484d"/>` +
+      [14, 23, 33, 42].map((x) => `<rect x="${x - 4}" y="45" width="8" height="5" rx="2.5" ${INK}/>`).join('') +
+      `<rect x="53" y="18" width="4" height="22" rx="2" ${ME}/><circle cx="55" cy="15" r="5" fill="#e5484d"/>`,
+  ),
   manilhadraw: svg(suit('c', 32, 38, 40, ME) + crown(32, 11, 20)),
   manilhaholdem: svg(card(18, 40, 20, 28, -10) + card(46, 40, 20, 28, 10) + suit('c', 32, 22, 22, ACC)),
   pifeexpress: svg(card(15, 36, 18, 26, -6) + card(32, 34, 18, 26, 0) + card(49, 36, 18, 26, 6) + bolt(26, 4, 1.05)),

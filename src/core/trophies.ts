@@ -67,6 +67,7 @@ export const SIGNATURES: Record<string, Signature> = {
   partybj: { kind: 'event', event: 'big' },
   coinflip: { kind: 'event', event: 'big' },
   horses: { kind: 'event', event: 'big' },
+  pokerslots: { kind: 'event', event: 'big' },
   partyuth: { kind: 'event', event: 'big' },
   vanunu: { kind: 'event', event: 'big' },
   craps: { kind: 'event', event: 'big' },
@@ -80,7 +81,7 @@ export const SIGNATURES: Record<string, Signature> = {
 };
 
 export const BRAZIL_GAMES = ['manilhadraw', 'manilhaholdem', 'pifeexpress', 'videopife', 'canastradraw'];
-export const MACHINE_GAMES = ['videopoker', 'videobj', 'videopife', 'slot3'];
+export const MACHINE_GAMES = ['videopoker', 'videobj', 'videopife', 'slot3', 'pokerslots'];
 const STREAK = 3;
 const HAND_GOALS: [number, Tier][] = [
   [10, 'bronze'],

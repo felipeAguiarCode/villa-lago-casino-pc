@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import gsap from 'gsap';
 import type { App } from '../app';
 
 /**
@@ -23,11 +24,64 @@ export function installPreviewTools(app: App) {
     out.height = 600;
     const g = out.getContext('2d')!;
     g.drawImage(src, cx - w / 2, 0, w, h, 0, 0, 960, 600);
+    const fr = st.renderer.domElement.getBoundingClientRect();
+    const map = (r: DOMRect) => ({ x: ((r.left - fr.left) * k - (cx - w / 2)) * (960 / w), y: (r.top - fr.top) * k * (600 / h), w: r.width * k * (960 / w), h: r.height * k * (600 / h) });
+    // Poker Slots: the cabinet is HTML around canvases (the reels and the displays): the body is
+    // painted here and the canvases are copied as they are on screen
+    const ps = document.querySelector<HTMLElement>('.pslot');
+    if (ps) {
+      const c = map(ps.getBoundingClientRect());
+      const grad = g.createLinearGradient(0, c.y, 0, c.y + c.h);
+      grad.addColorStop(0, '#7c1608');
+      grad.addColorStop(0.55, '#4a0b04');
+      grad.addColorStop(1, '#260402');
+      g.fillStyle = grad;
+      g.strokeStyle = '#e3b44c';
+      g.lineWidth = 5;
+      g.beginPath();
+      g.roundRect(c.x, c.y, c.w, c.h, 14);
+      g.fill();
+      g.stroke();
+      const title = ps.querySelector<HTMLElement>('.ps-title');
+      if (title) {
+        const tr = map(title.getBoundingClientRect());
+        g.fillStyle = '#f0c96a';
+        g.font = `900 ${Math.round(tr.h * 0.85)}px Cinzel, serif`;
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillText(title.textContent ?? '', tr.x + tr.w / 2, tr.y + tr.h / 2);
+      }
+      ps.querySelectorAll('canvas').forEach((cv) => {
+        const r = map(cv.getBoundingClientRect());
+        g.fillStyle = '#050505';
+        g.fillRect(r.x, r.y, r.w, r.h);
+        g.drawImage(cv, r.x, r.y, r.w, r.h);
+      });
+      const line = ps.querySelector<HTMLElement>('.ps-line');
+      if (line) {
+        const lr = map(line.getBoundingClientRect());
+        g.fillStyle = '#ff3b30';
+        g.fillRect(lr.x, lr.y, lr.w, Math.max(2, lr.h));
+      }
+      ps.querySelectorAll<HTMLElement>('.ps-hold').forEach((b) => {
+        const br = map(b.getBoundingClientRect());
+        g.fillStyle = '#4a4d52';
+        g.strokeStyle = '#e3b44c';
+        g.lineWidth = 2;
+        g.beginPath();
+        g.roundRect(br.x, br.y, br.w, br.h, br.h / 2);
+        g.fill();
+        g.stroke();
+        g.fillStyle = '#fff';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.font = `italic 800 ${Math.round(br.h * 0.5)}px "Barlow Condensed", sans-serif`;
+        g.fillText(b.querySelector('span')?.textContent ?? '', br.x + br.w / 2, br.y + br.h / 2);
+      });
+    }
     // Three Card Slots: its cabinet is HTML, so it is drawn over the picture by hand
     const cab = document.querySelector<HTMLElement>('.slotcab');
     if (cab) {
-      const fr = st.renderer.domElement.getBoundingClientRect();
-      const map = (r: DOMRect) => ({ x: ((r.left - fr.left) * k - (cx - w / 2)) * (960 / w), y: (r.top - fr.top) * k * (600 / h), w: r.width * k * (960 / w), h: r.height * k * (600 / h) });
       const c = map(cab.getBoundingClientRect());
       const grad = g.createLinearGradient(0, c.y, 0, c.y + c.h);
       grad.addColorStop(0, '#5a1022');
@@ -106,6 +160,9 @@ export function installPreviewTools(app: App) {
   const raw = sessionStorage.getItem(QUEUE);
   if (!raw) return;
   const q = JSON.parse(raw) as Queue;
+  // a queue often runs in a window left in the background, where the browser drops to a frame a
+  // second or so: let the animations follow the clock instead of slowing down with the frames
+  gsap.ticker.lagSmoothing(0);
   void (async () => {
     await until(() => document.querySelector('.sp-go:not([disabled])'));
     document.querySelector<HTMLButtonElement>('.sp-go')!.click();
@@ -118,7 +175,10 @@ export function installPreviewTools(app: App) {
       sessionStorage.removeItem(QUEUE);
       return;
     }
+    // tap through the opening cardistry show (it speeds up on every tap)
+    const tap = setInterval(() => window.dispatchEvent(new PointerEvent('pointerdown')), 250);
     await app.openGame(id);
+    clearInterval(tap);
     await sleep(900);
     document.querySelector<HTMLButtonElement>('.betbar:not(.hidden) .vbtn.green')?.click();
     await sleep(q.wait);

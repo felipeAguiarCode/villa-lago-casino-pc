@@ -161,15 +161,21 @@ export class Sfx {
   // ---------------------------------------------------------------- casino machine sounds (PC)
   private noiseBuf: AudioBuffer | null = null;
 
-  private noise(at: number, dur: number, vol: number, filter: BiquadFilterType, freq: number, q = 1, freqTo?: number) {
+  /** One second of white noise, made once. */
+  private noiseBuffer() {
     const ctx = this.ctx!;
     if (!this.noiseBuf) {
       this.noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
       const d = this.noiseBuf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     }
+    return this.noiseBuf;
+  }
+
+  private noise(at: number, dur: number, vol: number, filter: BiquadFilterType, freq: number, q = 1, freqTo?: number) {
+    const ctx = this.ctx!;
     const src = ctx.createBufferSource();
-    src.buffer = this.noiseBuf;
+    src.buffer = this.noiseBuffer();
     src.loop = true;
     const f = ctx.createBiquadFilter();
     f.type = filter;
@@ -236,6 +242,136 @@ export class Sfx {
     const t = this.ctx!.currentTime;
     this.noise(t, 0.025, vol, 'highpass', 3200 * pitch, 0.7);
     this.tone(1900 * pitch, t, 0.03, 'triangle', vol * 0.25);
+  }
+
+  // ---------------------------------------------------------------- slot machine (Poker Slots)
+  /**
+   * The reel motor: a low hum and the rush of the strips going round, until the returned function
+   * is called (then it winds down).
+   */
+  reelMotor(): () => void {
+    if (!this.ready()) return () => {};
+    const ctx = this.ctx!;
+    const t = ctx.currentTime;
+    const out = ctx.createGain();
+    out.gain.setValueAtTime(0, t);
+    out.gain.linearRampToValueAtTime(1, t + 0.25);
+    out.connect(this.master!);
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuffer();
+    src.loop = true;
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 700;
+    f.Q.value = 0.7;
+    const ng = ctx.createGain();
+    ng.gain.value = 0.045;
+    src.connect(f).connect(ng).connect(out);
+    // the strips' card edges flicking past: the rush pulses
+    const lfo = ctx.createOscillator();
+    const lg = ctx.createGain();
+    lfo.frequency.value = 19;
+    lg.gain.value = 0.02;
+    lfo.connect(lg).connect(ng.gain);
+    const hum = ctx.createOscillator();
+    hum.type = 'sawtooth';
+    hum.frequency.value = 58;
+    const hf = ctx.createBiquadFilter();
+    hf.type = 'lowpass';
+    hf.frequency.value = 240;
+    const hg = ctx.createGain();
+    hg.gain.value = 0.03;
+    hum.connect(hf).connect(hg).connect(out);
+    src.start(t, Math.random() * 0.5);
+    lfo.start(t);
+    hum.start(t);
+    let stopped = false;
+    return () => {
+      if (stopped) return;
+      stopped = true;
+      const e = ctx.currentTime;
+      out.gain.cancelScheduledValues(e);
+      out.gain.setValueAtTime(out.gain.value, e);
+      out.gain.linearRampToValueAtTime(0, e + 0.3);
+      hum.frequency.linearRampToValueAtTime(34, e + 0.3);
+      for (const n of [src, lfo, hum]) n.stop(e + 0.35);
+    };
+  }
+
+  /** A reel landing: the brake's clunk and the click of the stop pawl. */
+  reelStop(reel = 0) {
+    if (!this.ready()) return;
+    const t = this.ctx!.currentTime;
+    this.tone(120 - reel * 6, t, 0.14, 'sine', 0.22);
+    this.noise(t, 0.06, 0.2, 'bandpass', 1500 + reel * 120, 1.4);
+    this.tone(760 + reel * 40, t + 0.005, 0.05, 'square', 0.03);
+    this.noise(t + 0.07, 0.03, 0.08, 'highpass', 3600, 0.8);
+  }
+
+  /** The side lever: a ratchet on the way down and the spring on the way back. */
+  lever() {
+    if (!this.ready()) return;
+    const t = this.ctx!.currentTime;
+    for (let i = 0; i < 6; i++) this.noise(t + i * 0.025, 0.02, 0.09, 'highpass', 2800 - i * 120, 0.9);
+    this.tone(180, t + 0.15, 0.12, 'sine', 0.18);
+    this.noise(t + 0.15, 0.05, 0.12, 'bandpass', 900, 1.2);
+    const o = this.ctx!.createOscillator();
+    const g = this.ctx!.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(240, t + 0.2);
+    o.frequency.exponentialRampToValueAtTime(520, t + 0.55);
+    g.gain.setValueAtTime(0, t + 0.2);
+    g.gain.linearRampToValueAtTime(0.035, t + 0.24);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + 0.6);
+    o.connect(g).connect(this.master!);
+    o.start(t + 0.2);
+    o.stop(t + 0.65);
+  }
+
+  /** A HOLD key latching (on) or releasing (off). */
+  holdKey(on: boolean) {
+    if (!this.ready()) return;
+    const t = this.ctx!.currentTime;
+    this.noise(t, 0.04, 0.16, 'bandpass', on ? 2600 : 1700, 1.3);
+    this.tone(on ? 1320 : 880, t, 0.09, 'triangle', 0.08);
+    if (on) this.tone(1760, t + 0.06, 0.12, 'triangle', 0.06);
+  }
+
+  /** The HOLD keys light up: a quick two-tone chime. */
+  holdsOn() {
+    if (!this.ready()) return;
+    const t = this.ctx!.currentTime;
+    [988, 1319, 988, 1319].forEach((f, i) => this.tone(f, t + i * 0.09, 0.16, 'square', 0.035));
+  }
+
+  /** Suspense while the last reel keeps spinning: a rising, trembling tone. */
+  anticipation(sec = 1.5) {
+    if (!this.ready()) return;
+    const ctx = this.ctx!;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator();
+    const f = ctx.createBiquadFilter();
+    const g = ctx.createGain();
+    const trem = ctx.createOscillator();
+    const tg = ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(220, t);
+    o.frequency.exponentialRampToValueAtTime(880, t + sec);
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(900, t);
+    f.frequency.exponentialRampToValueAtTime(3200, t + sec);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.05, t + 0.15);
+    g.gain.setValueAtTime(0.05, t + sec - 0.1);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + sec + 0.1);
+    trem.frequency.value = 11;
+    tg.gain.value = 0.025;
+    trem.connect(tg).connect(g.gain);
+    o.connect(f).connect(g).connect(this.master!);
+    o.start(t);
+    trem.start(t);
+    o.stop(t + sec + 0.15);
+    trem.stop(t + sec + 0.15);
   }
 
   /** An airy whoosh (a coin toss, a quick spin). */
