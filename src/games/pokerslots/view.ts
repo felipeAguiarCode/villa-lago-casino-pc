@@ -3,30 +3,35 @@ import { addStrings, t } from '../../core/i18n';
 import { cardLabel, rankOf, type Card } from '../../core/cards';
 import { cryptoRng } from '../../core/rng';
 import { money } from '../../core/wallet';
-import { cardDataURL } from '../../table/cardFaces';
 import { shuffleShow } from '../../table/shuffle';
 import type { BtnSpec } from '../../ui/hud';
 import { finishXP } from '../kit';
 import type { GameCtx, GameView } from '../types';
-import { DotMatrix } from './marquee';
+import { openCombos, SlotCabinet } from './cabinet';
 import { Reels } from './reels';
-import { artCards, cardAt, PS, PS_ROWS, psPays, psRow, psRow4, spinStops, STRIPS, type PsKey } from './rules';
+import { artCards, cardAt, PS, PS_COUNTS, PS_LINES, PS_ROWS, psPays, psRow, psRow4, spinStops, STRIPS, type PsKey } from './rules';
 import { holdAdvice } from './strategy';
-import './pokerslots.css';
 
 addStrings(
   {
     'pks.title': 'POKER SLOTS',
-    'pks.msgLabel': 'Instructions',
-    'pks.won': 'Won',
-    'pks.credits': 'Credits',
+    'pks.combos': 'Poker Slots · hands',
+    'pks.combosIntro': 'The four cards on the red payline are paid as a four-card poker hand. Pays are per coin bet, stake included.',
+    'pks.combosNote': 'The reels are independent: the same card can show on two reels and counts like any other. The chance is per spin, without holds.',
+    'pks.d.royal': 'J, Q, K and A of the same suit.',
+    'pks.d.straightFlush': 'Four cards in sequence, all of one suit (A-2-3-4 counts).',
+    'pks.d.quads': 'Four cards of the same rank.',
+    'pks.d.straight': 'Four cards in sequence, any suits (A-2-3-4 up to J-Q-K-A).',
+    'pks.d.flush': 'Four cards of the same suit.',
+    'pks.d.trips': 'Three cards of the same rank and any fourth card.',
+    'pks.d.twoPair': 'Two pairs.',
+    'pks.d.jacks': 'A pair of Jacks, Queens, Kings or Aces.',
     'pks.hold': 'HOLD',
     'pks.held': 'HELD',
     'pks.spin': 'Spin',
     'pks.coin': 'COIN',
     'pks.bet': 'BET',
     'pks.coinBtn': 'Coin {n}',
-    'pks.any': 'ANY',
     'pks.welcome': '♠ POKER SLOTS ♥ ROYAL FLUSH PAYS {n} ♦ PRESS SPIN ♣',
     'pks.luck': 'GOOD LUCK!',
     'pks.holdsOn': 'HOLDS ON! HOLD ANY REELS AND SPIN',
@@ -36,23 +41,30 @@ addStrings(
     'pks.holdNone': 'No hold: just spin',
     'pks.holdsLost': 'Holds cancelled: the bet changed',
     'pks.rules': `
-      <p>A four-reel poker slot machine. Each reel is a strip of the 52 cards; the four cards on the red payline are paid as a four-card poker hand. Choose the coin and bet 1 to 5 coins, then <b>Spin</b> (Space) or pull the lever.</p>
+      <p>A four-reel poker slot machine. Each reel is a strip of the 52 cards; the four cards on the red payline are paid as a four-card poker hand. Choose the coin and bet 1 to 5 coins, then <b>Spin</b> (Space) or pull the lever. The <b>?</b> key on the machine shows every hand.</p>
       <h4>Holds</h4><p>Now and then, after a losing spin, the <b>HOLD</b> keys light up (keys 1–4). Hold the reels you like and spin again at the same bet: held reels stay still. A held spin never lights the holds again.</p>
       <h4>Paytable (per coin, bet included)</h4>
       <p>Royal flush (J-Q-K-A suited) 1000 · Straight flush 150 · Four of a kind 60 · Straight 12 · Flush 10 · Three of a kind 8 · Two pair 5 · Pair of Jacks or better 2. The reels are independent, so the same card can show twice.</p>
       <h4>Return</h4><p>97.4 % holding as the hint does (the light bulb), 79.5 % without ever holding.</p>`,
   },
   {
-    'pks.msgLabel': 'Mensagens',
-    'pks.won': 'Ganho',
-    'pks.credits': 'Créditos',
+    'pks.combos': 'Poker Slots · mãos',
+    'pks.combosIntro': 'As quatro cartas na linha vermelha são pagas como uma mão de pôquer de quatro cartas. Pagamentos por ficha apostada, aposta incluída.',
+    'pks.combosNote': 'Os rolos são independentes: a mesma carta pode aparecer em dois rolos e conta como qualquer outra. A chance é por giro, sem travas.',
+    'pks.d.royal': 'J, Q, K e A do mesmo naipe.',
+    'pks.d.straightFlush': 'Quatro cartas em sequência, todas do mesmo naipe (A-2-3-4 vale).',
+    'pks.d.quads': 'Quatro cartas do mesmo valor.',
+    'pks.d.straight': 'Quatro cartas em sequência, de qualquer naipe (de A-2-3-4 a J-Q-K-A).',
+    'pks.d.flush': 'Quatro cartas do mesmo naipe.',
+    'pks.d.trips': 'Três cartas do mesmo valor e uma quarta qualquer.',
+    'pks.d.twoPair': 'Dois pares.',
+    'pks.d.jacks': 'Um par de Valetes, Damas, Reis ou Ases.',
     'pks.hold': 'TRAVAR',
     'pks.held': 'TRAVADO',
     'pks.spin': 'Girar',
     'pks.coin': 'FICHA',
     'pks.bet': 'APOSTA',
     'pks.coinBtn': 'Ficha {n}',
-    'pks.any': 'QUALQUER',
     'pks.welcome': '♠ POKER SLOTS ♥ ROYAL FLUSH PAGA {n} ♦ APERTE GIRAR ♣',
     'pks.luck': 'BOA SORTE!',
     'pks.holdsOn': 'TRAVAS LIBERADAS! TRAVE OS ROLOS E GIRE',
@@ -62,7 +74,7 @@ addStrings(
     'pks.holdNone': 'Não trave: só gire',
     'pks.holdsLost': 'Travas canceladas: a aposta mudou',
     'pks.rules': `
-      <p>Um caça-níquel de pôquer com quatro rolos. Cada rolo é uma fita com as 52 cartas; as quatro cartas na linha vermelha são pagas como uma mão de pôquer de quatro cartas. Escolha a ficha e aposte de 1 a 5 fichas, depois <b>Gire</b> (Espaço) ou puxe a alavanca.</p>
+      <p>Um caça-níquel de pôquer com quatro rolos. Cada rolo é uma fita com as 52 cartas; as quatro cartas na linha vermelha são pagas como uma mão de pôquer de quatro cartas. Escolha a ficha e aposte de 1 a 5 fichas, depois <b>Gire</b> (Espaço) ou puxe a alavanca. A tecla <b>?</b> da máquina mostra todas as mãos.</p>
       <h4>Travas</h4><p>De vez em quando, depois de um giro sem prêmio, as teclas <b>TRAVAR</b> acendem (teclas 1–4). Trave os rolos que quiser e gire de novo com a mesma aposta: os rolos travados ficam parados. Um giro com travas nunca acende as travas de novo.</p>
       <h4>Tabela (por ficha, aposta incluída)</h4>
       <p>Royal flush (J-Q-K-A do mesmo naipe) 1000 · Straight flush 150 · Quadra 60 · Sequência 12 · Flush 10 · Trinca 8 · Dois pares 5 · Par de Valetes ou maior 2. Os rolos são independentes, então a mesma carta pode aparecer duas vezes.</p>
@@ -82,7 +94,6 @@ const ROW_NAME: Record<PsKey, string> = {
 };
 
 const wait = (s: number) => new Promise<void>((r) => gsap.delayedCall(s, r));
-const digits = (n: number) => money(n);
 
 /** Which reels make the paid hand (the pair of a Jacks win, the trips…), for the win glow. */
 function winningReels(line: Card[], row: number): boolean[] {
@@ -103,19 +114,13 @@ export class PokerSlotsView implements GameView {
   private held = [false, false, false, false];
   /** A HOLD offer is lit for the next spin. */
   private holdsOn = false;
-  private cab: HTMLElement | null = null;
-  private pay: HTMLElement | null = null;
-  private payRows: HTMLElement[] = [];
+  private cab: SlotCabinet | null = null;
   private holdBtns: HTMLButtonElement[] = [];
-  private lever: HTMLElement | null = null;
   private reels: Reels | null = null;
-  private dots: DotMatrix | null = null;
-  private won: DotMatrix | null = null;
-  private cred: DotMatrix | null = null;
   private motor: (() => void) | null = null;
   private off: (() => void)[] = [];
-  private shownWon = 0;
   private clock = 0;
+  private lastSpinning = 3;
   /** Dev and tests: the cards the next spin lands on (reel order). */
   rig: Card[] | null = null;
 
@@ -137,16 +142,36 @@ export class PokerSlotsView implements GameView {
     const { stage, table, hud } = this.g;
     stage.setZoom(1);
     table.setFelt('pokerslots');
-    this.buildPaytable();
     // the cabinet is laid out at once (hidden) so the reels can draw their cards during the show
-    this.buildCabinet();
+    const cab = new SlotCabinet(this.g, {
+      title: t('pks.title'),
+      onHelp: () => this.combos(),
+      onPull: () => this.spin(),
+      canPull: () => this.state === 'idle',
+    });
+    this.cab = cab;
+    cab.showPaytable(PS_ROWS.map((r) => ({ name: t(ROW_NAME[r.key]), cards: artCards(r) })));
+    this.payValues();
+    this.holdBtns = [0, 1, 2, 3].map((i) => {
+      const b = document.createElement('button');
+      b.className = 'ps-hold';
+      b.innerHTML = `<span>${t('pks.hold')}</span><kbd>${i + 1}</kbd>`;
+      b.disabled = true;
+      b.addEventListener('click', () => this.toggle(i));
+      cab.keys.appendChild(b);
+      return b;
+    });
+    this.reels = new Reels(cab.reelCanvas, STRIPS, this.stops, {
+      tick: (i) => {
+        if (i === this.lastSpinning) this.g.sfx.tick(0.05, 1.35);
+      },
+      stopped: (i) => this.g.sfx.reelStop(i),
+    });
     this.off.push(
       stage.onFrame((dt) => {
         this.clock += dt;
         this.reels?.frame(dt);
-        this.dots?.frame(dt, this.clock);
-        this.won?.frame(dt, this.clock);
-        this.cred?.frame(dt, this.clock);
+        this.cab?.frame(dt, this.clock);
       }),
     );
     const key = (e: KeyboardEvent) => this.key(e);
@@ -161,8 +186,8 @@ export class PokerSlotsView implements GameView {
     this.state = 'idle';
     // the machine stands in front: the deck box and the discard tray would peek out behind it
     table.setProps(false);
-    this.reveal();
-    this.message(t('pks.welcome', { n: money(PS_ROWS[0].pays * this.coins) }));
+    cab.reveal();
+    cab.message(t('pks.welcome', { n: money(PS_ROWS[0].pays * this.coins) }));
     this.idleBar();
   }
 
@@ -179,16 +204,9 @@ export class PokerSlotsView implements GameView {
     this.off = [];
     this.reels?.dispose();
     this.reels = null;
-    for (const d of [this.dots, this.won, this.cred]) d?.dispose();
-    this.dots = this.won = this.cred = null;
-    gsap.killTweensOf(this);
-    this.cab?.remove();
+    this.cab?.dispose();
     this.cab = null;
-    this.pay?.remove();
-    this.pay = null;
-    this.payRows = [];
     this.holdBtns = [];
-    this.lever = null;
     this.holdsOn = false;
     this.held = [false, false, false, false];
     table.clearDecals();
@@ -197,121 +215,23 @@ export class PokerSlotsView implements GameView {
   }
 
   onWalletChange() {
-    this.credits();
+    this.cab?.credits();
     if (this.state === 'idle') this.idleBar();
   }
 
-  // ---------------------------------------------------------------- the machine
-  private buildPaytable() {
-    const el = document.createElement('div');
-    el.className = 'paytable ps-pay';
-    this.payRows = PS_ROWS.map((row) => {
-      const r = document.createElement('div');
-      r.className = 'ps-row';
-      const cards = artCards(row)
-        .map((c) => (c === null ? `<span class="ps-any" title="${t('pks.any')}">?</span>` : `<img alt="${cardLabel(c)}" src="${cardDataURL(c, 72)}">`))
-        .join('');
-      r.innerHTML = `<div class="ps-cards">${cards}</div><div class="ps-val"><small>${t(ROW_NAME[row.key])}</small><b></b></div>`;
-      el.appendChild(r);
-      return r;
-    });
-    this.g.hud.root.appendChild(el);
-    this.pay = el;
-    this.payValues();
-  }
-
   private payValues() {
-    this.payRows.forEach((r, i) => (r.querySelector('b')!.textContent = money(PS_ROWS[i].pays * this.coins)));
+    this.cab?.payValues(PS_ROWS.map((r) => money(r.pays * this.coins)));
   }
 
-  private highlight(row: number | null) {
-    this.payRows.forEach((r, i) => r.classList.toggle('hit', i === row));
-  }
-
-  private buildCabinet() {
-    const cab = document.createElement('div');
-    cab.className = 'pslot';
-    const bulbs = Array.from({ length: 22 }, (_, i) => `<i style="--k:${i}"></i>`).join('');
-    cab.innerHTML = `
-      <div class="ps-bulbs">${bulbs}</div>
-      <div class="ps-bulbs bottom">${bulbs}</div>
-      <div class="ps-head"><span class="ps-title gold-text">${t('pks.title')}</span></div>
-      <div class="ps-leds">
-        <div class="ps-msg"><small>${t('pks.msgLabel')}</small><canvas></canvas></div>
-        <div class="ps-won"><small>${t('pks.won')}</small><canvas></canvas></div>
-        <div class="ps-cred"><small>${t('pks.credits')}</small><canvas></canvas></div>
-      </div>
-      <div class="ps-window"><canvas class="ps-reels"></canvas><div class="ps-line"></div><div class="ps-glass"></div></div>
-      <div class="ps-holds"></div>
-      <div class="ps-lever"><div class="ps-arm"><div class="ps-knob"></div></div><div class="ps-hub"></div></div>`;
-    const holds = cab.querySelector('.ps-holds')!;
-    this.holdBtns = [0, 1, 2, 3].map((i) => {
-      const b = document.createElement('button');
-      b.className = 'ps-hold';
-      b.innerHTML = `<span>${t('pks.hold')}</span><kbd>${i + 1}</kbd>`;
-      b.disabled = true;
-      b.addEventListener('click', () => this.toggle(i));
-      holds.appendChild(b);
-      return b;
-    });
-    this.lever = cab.querySelector('.ps-lever');
-    this.lever!.addEventListener('pointerdown', (e) => this.pull(e));
-    this.g.hud.root.appendChild(cab);
-    this.cab = cab;
-    this.won = new DotMatrix(cab.querySelector('.ps-won canvas')!, '#ff3b2f');
-    this.cred = new DotMatrix(cab.querySelector('.ps-cred canvas')!, '#43ff7a');
-    this.setWon(0, false);
-    this.credits();
-    this.reels = new Reels(cab.querySelector('.ps-reels')!, STRIPS, this.stops, {
-      tick: (i) => {
-        if (i === this.lastSpinning) this.g.sfx.tick(0.05, 1.35);
-      },
-      stopped: (i) => this.g.sfx.reelStop(i),
-    });
-    this.dots = new DotMatrix(cab.querySelector('.ps-msg canvas')!);
-  }
-
-  private lastSpinning = 3;
-
-  private reveal() {
-    const cab = this.cab;
-    if (!cab) return;
-    cab.classList.add('on');
-    gsap.fromTo(cab, { opacity: 0, y: 24, scale: 0.94 }, { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: 'back.out(1.5)' });
-    if (this.pay) gsap.fromTo(this.pay, { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.5, delay: 0.1, ease: 'power2.out' });
-  }
-
-  private message(text: string, flash = 0) {
-    this.dots?.show(text, flash);
-  }
-
-  private credits() {
-    this.cred?.show(digits(this.g.wallet.balance));
-  }
-
-  /** The WON display; a win counts up, ticking like a coin meter. */
-  private setWon(n: number, animate: boolean) {
-    gsap.killTweensOf(this);
-    if (!animate) {
-      this.shownWon = n;
-      this.won?.show(digits(n));
-      return;
-    }
-    let last = -1;
-    gsap.to(this, {
-      shownWon: n,
-      duration: Math.min(2.4, 0.5 + n / Math.max(1, this.coin * 40)),
-      ease: 'power1.out',
-      onUpdate: () => {
-        const v = Math.round(this.shownWon);
-        this.won?.show(digits(v));
-        const step = Math.floor(v / Math.max(1, this.coin));
-        if (step !== last) {
-          last = step;
-          this.g.sfx.tick(0.03, 1.8);
-        }
-      },
-    });
+  /** The "?" key: every hand with an example, its pay and its chance. */
+  private combos() {
+    openCombos(
+      this.g,
+      t('pks.combos'),
+      t('pks.combosIntro'),
+      PS_ROWS.map((r, i) => ({ name: t(ROW_NAME[r.key]), cards: artCards(r), desc: t(`pks.d.${r.key}`), pays: `${r.pays}×`, p: PS_COUNTS[i] / PS_LINES })),
+      t('pks.combosNote'),
+    );
   }
 
   // ---------------------------------------------------------------- bet bar
@@ -337,7 +257,7 @@ export class PokerSlotsView implements GameView {
 
   private idleBar() {
     this.bar(true);
-    this.lever?.classList.toggle('ready', this.g.wallet.canAfford(this.coin * this.coins));
+    this.cab?.setLeverReady(this.g.wallet.canAfford(this.coin * this.coins));
   }
 
   private cycleCoin() {
@@ -396,7 +316,7 @@ export class PokerSlotsView implements GameView {
 
   private key(e: KeyboardEvent) {
     if (!this.cab || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-    if (this.g.hud.root.querySelector('.modal:not(.hidden) .panel')) return;
+    if (this.g.hud.root.querySelector('.modal .panel')) return;
     if (/^[1-4]$/.test(e.key)) {
       this.toggle(Number(e.key) - 1);
       e.preventDefault();
@@ -405,46 +325,14 @@ export class PokerSlotsView implements GameView {
         e.preventDefault();
         this.spin();
       }
-    }
-  }
-
-  /** The lever: pull it down (or click it) to spin. */
-  private pull(e: PointerEvent) {
-    if (this.state !== 'idle' || !this.lever) return;
-    e.preventDefault();
-    const arm = this.lever.querySelector<HTMLElement>('.ps-arm')!;
-    const y0 = e.clientY;
-    const h = this.lever.getBoundingClientRect().height;
-    let k = 0;
-    const move = (ev: PointerEvent) => {
-      k = Math.max(0, Math.min(1, (ev.clientY - y0) / (h * 0.45)));
-      gsap.set(arm, { rotateX: -k * 150 });
-    };
-    const up = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      // a click pulls it all the way; a short drag snaps back without spinning
-      if (k < 0.15 || k > 0.55) this.spin();
-      else gsap.to(arm, { rotateX: 0, duration: 0.5, ease: 'elastic.out(1, 0.4)' });
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  }
-
-  private leverAnim() {
-    const arm = this.lever?.querySelector<HTMLElement>('.ps-arm');
-    if (!arm) return;
-    this.g.sfx.lever();
-    gsap
-      .timeline()
-      .to(arm, { rotateX: -150, duration: 0.16, ease: 'power2.in', overwrite: true })
-      .to(arm, { rotateX: 0, duration: 0.9, ease: 'elastic.out(1, 0.35)' });
+    } else if (e.key === '?' && this.state !== 'shuffling') this.combos();
   }
 
   // ---------------------------------------------------------------- the spin
   private async spin() {
     const { wallet, hud, sfx, fx, stage } = this.g;
-    if (this.state !== 'idle' || !this.reels) return;
+    if (this.state !== 'idle' || !this.reels || !this.cab) return;
+    const cab = this.cab;
     const cost = this.coin * this.coins;
     if (!wallet.canAfford(cost)) return hud.toast(t('toast.noFunds'));
     this.state = 'spinning';
@@ -456,15 +344,15 @@ export class PokerSlotsView implements GameView {
     this.syncHolds();
     hud.showHint(false);
     wallet.debit(cost);
-    this.credits();
-    this.setWon(0, false);
-    this.highlight(null);
+    cab.credits();
+    cab.setWon(0, false);
+    cab.highlight(null);
     this.reels.showWin(null);
-    this.cab?.classList.remove('win', 'bigwin');
+    cab.setWinState(null);
     this.bar(false);
-    this.lever?.classList.remove('ready');
-    this.leverAnim();
-    this.message(t('pks.luck'));
+    cab.setLeverReady(false);
+    cab.leverAnim();
+    cab.message(t('pks.luck'));
     const rig = this.rig;
     this.rig = null;
     const next = rig ? rig.map((c, i) => (held[i] ? this.stops[i] : STRIPS[i].indexOf(c))) : spinStops(this.stops, held, cryptoRng);
@@ -479,7 +367,7 @@ export class PokerSlotsView implements GameView {
     let elapsed = 0;
     for (let k = 0; k < order.length; k++) {
       const i = order[k];
-      if (k === order.length - 1 && this.anticipate(next, held, i)) {
+      if (k === order.length - 1 && this.anticipate(next, i)) {
         await wait(Math.max(0, at - elapsed));
         elapsed = at;
         this.reels.setGlow(i, true);
@@ -505,13 +393,14 @@ export class PokerSlotsView implements GameView {
     let banner: Promise<void>;
     if (won > 0) {
       const big = row <= 2;
+      const name = t(ROW_NAME[PS_ROWS[row].key]);
       wallet.credit(won);
-      this.highlight(row);
+      cab.highlight(row);
       this.reels.showWin(winningReels(line, row));
-      this.cab?.classList.add(big ? 'bigwin' : 'win');
-      this.setWon(won, true);
-      this.credits();
-      this.message(t('pks.winMsg', { hand: t(ROW_NAME[PS_ROWS[row].key]), n: money(won) }), big ? 3 : 0);
+      cab.setWinState(big ? 'bigwin' : 'win');
+      cab.setWon(won, true, this.coin);
+      cab.credits();
+      cab.message(t('pks.winMsg', { hand: name, n: money(won) }), big ? 3 : 0);
       fx.burst(stage.screenToTable(0.5, 0.5, 0.3), big ? 200 : row <= 4 ? 90 : 40);
       if (big) {
         sfx.jackpot();
@@ -520,15 +409,15 @@ export class PokerSlotsView implements GameView {
         sfx.win(row <= 4);
         sfx.coins(Math.min(30, 4 + PS_ROWS[row].pays), 0.2);
       }
-      banner = hud.banner(t(ROW_NAME[PS_ROWS[row].key]).toUpperCase(), `+${money(won)}`, row <= 4 ? 'win' : 'win small', big ? 2000 : 1200);
+      banner = hud.banner(name.toUpperCase(), `+${money(won)}`, row <= 4 ? 'win' : 'win small', big ? 2000 : 1200);
     } else {
       // a losing plain spin may light the holds for the next one
       if (!heldSpin && cryptoRng(1000) < PS.holdChance * 1000) {
         this.holdsOn = true;
         sfx.holdsOn();
-        this.message(t('pks.holdsOn'), 0);
+        cab.message(t('pks.holdsOn'));
         hud.showHint(this.g.settings.hints);
-      } else this.message(t('pks.tryAgain'));
+      } else cab.message(t('pks.tryAgain'));
       banner = Promise.resolve();
     }
     await finishXP(this.g, cost, won - cost, banner);
@@ -539,9 +428,8 @@ export class PokerSlotsView implements GameView {
   }
 
   /** True when the last spinning reel could still make a straight flush, a royal or four of a kind. */
-  private anticipate(next: number[], held: boolean[], last: number) {
+  private anticipate(next: number[], last: number) {
     const known = next.map((s, i) => (i === last ? -1 : cardAt(i, s)));
-    void held;
     for (let c = 0; c < 52; c++) {
       const l = known.map((k) => (k < 0 ? c : k));
       const r = psRow4(l[0], l[1], l[2], l[3]);

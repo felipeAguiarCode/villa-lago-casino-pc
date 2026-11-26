@@ -18,13 +18,19 @@ export function installPreviewTools(app: App) {
     const k = src.width / st.w;
     const h = (st.play.y + st.play.h) * k;
     const w = Math.min(src.width, h * 1.6);
-    const cx = (st.play.x + st.play.w / 2) * k;
+    const fr = st.renderer.domElement.getBoundingClientRect();
+    let cx = (st.play.x + st.play.w / 2) * k;
+    // a wide slot cabinet (Hold'em Slots) reaches into the right zone: center the picture on it
+    const wideCab = document.querySelector<HTMLElement>('.pslot.wide');
+    if (wideCab) {
+      const r = wideCab.getBoundingClientRect();
+      cx = Math.min(src.width - w / 2, (r.left + r.width / 2 - fr.left) * k);
+    }
     const out = document.createElement('canvas');
     out.width = 960;
     out.height = 600;
     const g = out.getContext('2d')!;
     g.drawImage(src, cx - w / 2, 0, w, h, 0, 0, 960, 600);
-    const fr = st.renderer.domElement.getBoundingClientRect();
     const map = (r: DOMRect) => ({ x: ((r.left - fr.left) * k - (cx - w / 2)) * (960 / w), y: (r.top - fr.top) * k * (600 / h), w: r.width * k * (960 / w), h: r.height * k * (600 / h) });
     // Poker Slots: the cabinet is HTML around canvases (the reels and the displays): the body is
     // painted here and the canvases are copied as they are on screen
@@ -62,6 +68,29 @@ export function installPreviewTools(app: App) {
         const lr = map(line.getBoundingClientRect());
         g.fillStyle = '#ff3b30';
         g.fillRect(lr.x, lr.y, lr.w, Math.max(2, lr.h));
+      }
+      // Hold'em Slots: the street captions and the made hand
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      ps.querySelectorAll<HTMLElement>('.hs-labels span').forEach((sp) => {
+        const sr = map(sp.getBoundingClientRect());
+        g.fillStyle = '#ffd57a';
+        g.font = `800 ${Math.max(9, Math.round(sr.h * 0.8))}px "Barlow Condensed", sans-serif`;
+        g.fillText((sp.textContent ?? '').toUpperCase(), sr.x + sr.w / 2, sr.y + sr.h * 0.45);
+      });
+      const made = ps.querySelector<HTMLElement>('.hs-made');
+      if (made?.textContent) {
+        const mr = map(made.getBoundingClientRect());
+        g.fillStyle = '#0a0806';
+        g.strokeStyle = '#a17c35';
+        g.lineWidth = 2;
+        g.beginPath();
+        g.roundRect(mr.x, mr.y, mr.w, mr.h, mr.h / 2);
+        g.fill();
+        g.stroke();
+        g.fillStyle = made.classList.contains('pays') ? '#7dff9c' : '#ffd84a';
+        g.font = `italic 800 ${Math.round(mr.h * 0.5)}px "Barlow Condensed", sans-serif`;
+        g.fillText(made.textContent.toUpperCase(), mr.x + mr.w / 2, mr.y + mr.h / 2);
       }
       ps.querySelectorAll<HTMLElement>('.ps-hold').forEach((b) => {
         const br = map(b.getBoundingClientRect());

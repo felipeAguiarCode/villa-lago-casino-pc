@@ -35,6 +35,10 @@ export const PS_ROWS: PsRow[] = [
   { key: 'jacks', pays: 2, art: ['Jc', 'Jh', null, null] },
 ];
 
+/** Lines of 52^4 paid by each row (tests/pokerslots.test.ts counts them), for the odds. */
+export const PS_COUNTS = [96, 960, 3328, 66528, 113136, 157248, 117936, 798336];
+export const PS_LINES = 52 ** 4;
+
 export const PS = {
   coins: [5, 25, 100] as const,
   maxCoins: 5,

@@ -88,6 +88,13 @@ export const GAME_ICONS: Record<string, string> = {
       [14, 23, 33, 42].map((x) => `<rect x="${x - 4}" y="45" width="8" height="5" rx="2.5" ${INK}/>`).join('') +
       `<rect x="53" y="18" width="4" height="22" rx="2" ${ME}/><circle cx="55" cy="15" r="5" fill="#e5484d"/>`,
   ),
+  holdemslots: svg(
+    `<rect x="3" y="10" width="50" height="46" rx="6" ${ME}/><rect x="6.5" y="20" width="43" height="20" rx="2" ${INK}/>` +
+      [10.5, 16.5].map((x) => `<rect x="${x - 2.6}" y="23" width="5.2" height="14" rx="1" fill="#e5484d"/>`).join('') +
+      [25, 30.5, 36, 41.5, 47].map((x) => `<rect x="${x - 2.4}" y="23" width="4.8" height="14" rx="1" ${ACC}/>`).join('') +
+      `<rect x="6" y="29.4" width="44" height="1.4" fill="#e5484d"/>` +
+      `<rect x="14" y="45" width="28" height="5" rx="2.5" ${INK}/><rect x="55" y="18" width="4" height="22" rx="2" ${ME}/><circle cx="57" cy="15" r="5" fill="#e5484d"/>`,
+  ),
   manilhadraw: svg(suit('c', 32, 38, 40, ME) + crown(32, 11, 20)),
   manilhaholdem: svg(card(18, 40, 20, 28, -10) + card(46, 40, 20, 28, 10) + suit('c', 32, 22, 22, ACC)),
   pifeexpress: svg(card(15, 36, 18, 26, -6) + card(32, 34, 18, 26, 0) + card(49, 36, 18, 26, 6) + bolt(26, 4, 1.05)),

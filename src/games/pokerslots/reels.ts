@@ -35,7 +35,15 @@ interface Reel {
   /** Anticipation glow 0..1 (the last reel when a big hand is one card away). */
   glow: number;
   glowTo: number;
+  /** Dimmed 0..1 (a reel not in play yet). */
+  dim: number;
+  dimTo: number;
   done?: () => void;
+}
+
+export interface ReelsOpts {
+  /** Reels per group, left to right (wider gaps between groups), e.g. [2, 3, 1, 1]. */
+  groups?: number[];
 }
 
 const VMAX = 21; // cards per second at full speed
@@ -51,7 +59,7 @@ export class Reels {
   private W = 1;
   private H = 1;
   private dpr = 1;
-  private geo = { m: 0, gap: 0, rw: 0, cw: 0, ch: 0, R: 0, phi: 0, tmax: 0, cy: 0 };
+  private geo = { xs: [] as number[], rw: 0, cw: 0, ch: 0, R: 0, phi: 0, tmax: 0, cy: 0 };
   private shade: HTMLCanvasElement | null = null;
   private clock = 0;
   private dirty = true;
@@ -65,9 +73,10 @@ export class Reels {
     strips: Card[][],
     stops: number[],
     private hooks: ReelHooks = {},
+    private opts: ReelsOpts = {},
   ) {
     this.ctx = canvas.getContext('2d')!;
-    this.reels = strips.map((strip, i) => ({ strip, pos: stops[i], vel: 0, mode: 'idle', t: 0, from: 0, to: 0, dur: 0, stopAt: stops[i], held: false, glow: 0, glowTo: 0 }));
+    this.reels = strips.map((strip, i) => ({ strip, pos: stops[i], vel: 0, mode: 'idle', t: 0, from: 0, to: 0, dur: 0, stopAt: stops[i], held: false, glow: 0, glowTo: 0, dim: 0, dimTo: 0 }));
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(canvas);
     this.resize();
@@ -103,6 +112,19 @@ export class Reels {
     this.reels[i].glowTo = on ? 1 : 0;
   }
 
+  /** Dims a reel that is not in play yet (`at once`: no fade). */
+  setDim(i: number, on: boolean, atOnce = false) {
+    const r = this.reels[i];
+    r.dimTo = on ? 1 : 0;
+    if (atOnce) r.dim = r.dimTo;
+    this.dirty = true;
+  }
+
+  /** Left edge and width of every reel in CSS pixels, relative to the canvas (to place labels). */
+  columns(): { x: number; w: number }[] {
+    return this.geo.xs.map((x) => ({ x: x / this.dpr, w: this.geo.rw / this.dpr }));
+  }
+
   showWin(reels: boolean[] | null) {
     this.win = reels;
     this.winT = 0;
@@ -123,7 +145,19 @@ export class Reels {
     const n = this.reels.length;
     const m = W * 0.012;
     const gap = W * 0.018;
-    const rw = (W - 2 * m - (n - 1) * gap) / n;
+    // groups (Hold'em Slots: hand | flop | turn | river) are set apart by a wider gap
+    const groups = this.opts.groups ?? [n];
+    const wide = gap * 2.6;
+    const rw = (W - 2 * m - (n - groups.length) * gap - (groups.length - 1) * wide) / n;
+    const xs: number[] = [];
+    let x = m;
+    groups.forEach((count, gi) => {
+      for (let k = 0; k < count; k++) {
+        xs.push(x);
+        x += rw + (k < count - 1 ? gap : 0);
+      }
+      if (gi < groups.length - 1) x += wide;
+    });
     // the drum: the window shows ±tmax of it; the card on the line plus most of its neighbours
     const tmax = 0.98;
     const R = H / 2 / Math.sin(tmax);
@@ -134,7 +168,7 @@ export class Reels {
       ch = (cw * 716) / 512;
     }
     const pitch = ch * 1.1;
-    this.geo = { m, gap, rw, cw, ch, R, phi: pitch / R, tmax, cy: H / 2 };
+    this.geo = { xs, rw, cw, ch, R, phi: pitch / R, tmax, cy: H / 2 };
     // sprites at the new size
     const keep = new Set([...this.sharp.keys()]);
     this.sharp.clear();
@@ -268,6 +302,11 @@ export class Reels {
         r.glow += (r.glowTo - r.glow) * Math.min(1, dt * 6);
         moving = true;
       }
+      if (Math.abs(r.dim - r.dimTo) > 0.001) {
+        r.dim += (r.dimTo - r.dim) * Math.min(1, dt * 7);
+        if (Math.abs(r.dim - r.dimTo) <= 0.001) r.dim = r.dimTo;
+        moving = true;
+      }
       if (r.mode === 'idle') return;
       moving = true;
       r.t += dt;
@@ -322,6 +361,8 @@ export class Reels {
     if (this.pending.length) {
       // a few sprites per frame until every card is ready
       for (let k = 0; k < 3 && this.pending.length; k++) this.sprite(this.pending.shift()!);
+      // a card drawn before its sprite was ready shows up now
+      this.dirty = true;
     }
     if (this.win) {
       this.winT += dt;
@@ -334,11 +375,11 @@ export class Reels {
   // ---------------------------------------------------------------- drawing
   private draw() {
     const g = this.ctx;
-    const { m, gap, rw, cw, ch, R, phi, tmax, cy } = this.geo;
+    const { xs, rw, cw, ch, R, phi, tmax, cy } = this.geo;
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.clearRect(0, 0, this.W, this.H);
     this.reels.forEach((r, i) => {
-      const x0 = m + i * (rw + gap);
+      const x0 = xs[i];
       g.save();
       g.beginPath();
       g.rect(x0, 0, rw, this.H);
@@ -375,6 +416,10 @@ export class Reels {
         }
       }
       if (this.shade) g.drawImage(this.shade, x0, 0, rw, this.H);
+      if (r.dim > 0.005) {
+        g.fillStyle = `rgba(4, 10, 6, ${0.66 * r.dim})`;
+        g.fillRect(x0, 0, rw, this.H);
+      }
       // held: a gold frame round the card on the line
       if (r.held) {
         const p = 0.6 + 0.4 * Math.sin(this.clock * 5);

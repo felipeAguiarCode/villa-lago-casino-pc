@@ -3,8 +3,8 @@ import { GAMES } from '../src/games/registry';
 // read as text: decor.ts needs WebGL and the DOM, so its tables are parsed instead of imported
 import source from '../src/table/decor.ts?raw';
 
-/** The busy tables keep their felt clear: no decor at all. */
-const BUSY = ['partybj', 'partytcp', 'partyuth', 'partystud', 'partytrump', 'partyhorses', 'roulette', 'horses', 'craps'];
+/** The busy tables keep their felt clear: no decor at all (Hold'em Slots: its wide machine covers it). */
+const BUSY = ['partybj', 'partytcp', 'partyuth', 'partystud', 'partytrump', 'partyhorses', 'roulette', 'horses', 'craps', 'holdemslots'];
 
 const block = (start: string) => {
   const i = source.indexOf(start);

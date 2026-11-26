@@ -155,6 +155,7 @@ const THEMES: Record<string, Spot[]> = {
   roulette: [],
   partybj: [],
   horses: [],
+  holdemslots: [],
   pokerslots: set(['martini', R4], ['chips', R1], ['placard', R0]),
   partyuth: [],
   craps: [],
