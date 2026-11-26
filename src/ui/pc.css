@@ -1,0 +1,153 @@
+/* ================================================================ PC / widescreen edition
+   The phone HUD keeps its look; this sheet lays it out for a wide screen. The top bar runs across
+   the screen, paytables and boards sit in the left panel, chips and action buttons in the right
+   panel, and the table fills the middle (see src/ui/layout.ts and Stage.fitView).
+   --u is the HUD unit (follows the screen height), --side the width of each side panel, and
+   --col the phone frame's width, used to center the pieces that belonged to the table. */
+
+#frame {
+  --edge: calc(3 * var(--u));
+  --col: calc(100 * var(--u));
+  --col-l: calc(50% - var(--col) / 2);
+  --panel-top: calc(18.5 * var(--u));
+}
+
+/* ---------------------------------------------------------------- top bar */
+.topbar {
+  left: var(--edge);
+  right: var(--edge);
+  top: calc(2.4 * var(--u));
+}
+
+.topbar .xp {
+  flex: 0 1 calc(96 * var(--u));
+  margin: 0 auto;
+}
+
+.topbar .fullbtn svg {
+  width: calc(6 * var(--u));
+  height: calc(6 * var(--u));
+}
+
+/* ---------------------------------------------------------------- side panels
+   The side panels have room, so their pieces use a larger unit (--u-panel). */
+.paytable,
+.roadmap,
+.modebar,
+.actions,
+.betbar {
+  --u: var(--u-panel);
+}
+
+/* left panel: paytables, mode selector, bead road */
+.paytable,
+.roadmap,
+.modebar {
+  left: var(--edge);
+  right: auto;
+  width: var(--side);
+  top: var(--panel-top);
+}
+
+.paytable.below-modes {
+  top: calc(var(--panel-top) + 12.5 * var(--u-panel));
+}
+
+/* ---------------------------------------------------------------- right panel: chips and actions */
+.actions,
+.betbar {
+  left: auto;
+  right: var(--edge);
+  width: var(--side);
+  bottom: calc(10.5 * var(--u-panel));
+}
+
+.hintbtn {
+  right: calc(var(--edge) + 2 * var(--u));
+  bottom: calc(60 * var(--u-panel));
+}
+
+/* ---------------------------------------------------------------- pieces centered on the table */
+.prompt {
+  left: calc(var(--col-l) + 6 * var(--u));
+  right: calc(var(--col-l) + 6 * var(--u));
+}
+
+.slotcab {
+  left: calc(var(--col-l) + 6 * var(--u));
+  right: calc(var(--col-l) + 6 * var(--u));
+}
+
+/* Trump 21's trump cards are player actions: they sit in the right panel, above the buttons */
+.trumprow {
+  --u: var(--u-panel);
+  left: auto;
+  right: var(--edge);
+  width: var(--side);
+  bottom: calc(38 * var(--u-panel));
+  justify-content: center;
+}
+
+/* ---------------------------------------------------------------- panels */
+.panel {
+  width: min(calc(130 * var(--u)), 92cqw);
+  max-height: 86cqh;
+  font-size: calc(4.2 * var(--u));
+}
+
+/* ---------------------------------------------------------------- lobby: a grid of tables */
+#lobby {
+  padding-top: calc(15 * var(--u));
+}
+
+#lobby .gamelist {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  width: min(100%, calc(360 * var(--u)));
+  gap: calc(2.6 * var(--u)) calc(3 * var(--u));
+  padding: calc(1.5 * var(--u)) calc(5 * var(--u)) calc(4 * var(--u));
+}
+
+#lobby .gamerow .gr-text b {
+  font-size: calc(4.9 * var(--u));
+}
+
+/* ---------------------------------------------------------------- splash notice */
+.sp-notice p,
+.sp-notice small {
+  max-width: calc(130 * var(--u));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ---------------------------------------------------------------- mouse */
+@media (hover: hover) {
+  .vbtn:hover:not([disabled]) .face {
+    filter: brightness(1.14);
+  }
+
+  .chipbtn:hover:not([disabled]) {
+    transform: translateY(calc(-0.8 * var(--u)));
+  }
+
+  .gamerow {
+    transition:
+      transform 0.15s,
+      filter 0.15s;
+  }
+
+  .gamerow:hover {
+    transform: translateY(calc(-0.5 * var(--u)));
+    filter: brightness(1.12);
+  }
+
+  .round-btn:hover,
+  .bank-plus:hover,
+  .sidetab:hover,
+  .drawer button:hover,
+  .modechip:hover,
+  .seg button:hover {
+    filter: brightness(1.2);
+  }
+}

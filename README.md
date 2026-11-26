@@ -1,4 +1,4 @@
-# ♠ Poker: Against the House
+# ♠ Poker: Against the House — PC Edition
 
 **Gênero:** Poker RPG / Casino Career Simulator
 
@@ -8,9 +8,11 @@
 
 ---
 
+> **PC edition.** This is the widescreen, full-screen version for computers. The phone version (portrait) lives in [villa-lago-casino](https://github.com/felipeAguiarCode/villa-lago-casino).
+
 ## Villa Lago Casino
 
-The game is set at the Villa Lago casino, whose symbol is **VL on a golden chip**. A portrait, mobile-first 3D card casino made with **three.js**: twenty-eight games against the dealer, rich card animations, chips that fly and stack, and a big video-poker style HUD.
+The game is set at the Villa Lago casino, whose symbol is **VL on a golden chip**. A widescreen 3D card casino for the computer, made with **three.js**: twenty-eight games against the dealer, rich card animations, chips that fly and stack, and a big video-poker style HUD.
 
 > **Play chips only.** There is no real money, no real-money gambling and nothing to buy. Chips have no cash value. "Villa Lago" is an original name, not affiliated with any real casino.
 
@@ -49,12 +51,19 @@ The game is set at the Villa Lago casino, whose symbol is **VL on a golden chip*
 
 Every table opens with a cardistry show picked at random, never the same one twice in a row: ribbon spread with a wave turnover, pressure fan, triple cut with a twirl, card spring, waterfall, faro weave, overhand, circle spread, chemmy wash, riffle and bridge (seven opening routines, five shorter reshuffles). Cards are dealt from a sealed Villa Lago deck box with gold-foil print, and the tables use icon buttons. Motion is physically modelled: cards fly low, land and slide on the felt with friction, and turn over by rolling on one edge; chips fly on ballistic arcs, bounce and wobble flat like coins; stacks lean with inertia when pushed. Levels follow an RPG curve (`src/core/progression.ts`): the first levels come in a few hands and every level asks for more XP than the last, while bigger bets add XP with diminishing returns; each level-up pays a chip bonus. Text is in English by default with Portuguese available in the settings.
 
+## PC layout
+
+- **Full window, any widescreen.** The game fills the browser window, and a button in the top bar switches to full screen. The HUD scales with the screen height, from a 1366×768 laptop to a 1440p monitor or an ultrawide.
+- **Table in the middle.** The tables keep the phone version's layouts. A virtual portrait camera places every card, chip and print as before, and a seated widescreen camera, tilted 30°, frames the play area in the middle of the screen (`src/table/stage.ts`). The felt and the padded rail run to the screen edges, and the deck box and discard tray sit in the top corners of the play area.
+- **Side panels.** Paytables, the Three Card mode selector and the baccarat bead road sit on the left. Chips, bet and action buttons, Trump 21's trump cards and the hint lamp sit on the right. Both panels use a larger unit than the table pieces (`src/ui/layout.ts`, `src/ui/pc.css`).
+- **Lobby.** The tables are shown in a three-column grid.
+- **Mouse and keyboard.** Buttons, chips and tables light up on hover, and **Esc** closes the open panel or the menu. Nine-card hands (Video Pife, Canastra Draw) are spread wider.
+
 ## Run
 
 ```bash
 npm install
-npm run dev          # http://127.0.0.1:5173
-npm run dev -- --host  # open from a phone on the same network
+npm run dev          # http://127.0.0.1:5174
 npm run test         # 230 rule / payout / RTP tests
 npm run sim:showdown # Showdown Poker balance report → docs/showdown-balance.md
 npm run sim:abyss    # Abyss Poker balance report → docs/abyss-balance.md
@@ -75,4 +84,4 @@ Kenney *Casino Audio* (CC0), *Felt Backgrounds* by jbp4444 (CC0), English patter
 
 ### Português
 
-Cassino de cartas 3D para celular em pé, feito com three.js: 28 jogos contra o dealer, animações de cartas e fichas, HUD estilo video poker. Somente fichas fictícias — sem dinheiro real. Rode com `npm install` e `npm run dev`.
+Versão para PC (tela cheia, widescreen) do cassino de cartas 3D feito com three.js: 28 jogos contra o dealer, a mesa ao centro, as tabelas de pagamento à esquerda e as fichas e ações à direita, com a HUD ampliada para monitores. A versão para celular está em [villa-lago-casino](https://github.com/felipeAguiarCode/villa-lago-casino). Somente fichas fictícias — sem dinheiro real. Rode com `npm install` e `npm run dev`.

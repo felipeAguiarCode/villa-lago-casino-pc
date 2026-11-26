@@ -138,7 +138,18 @@ export class Hud {
       this.sfx.click();
       this.onGear();
     };
-    top.append(this.bankEl, xp, gear);
+    // PC: full-screen toggle next to the settings gear
+    const full = h('button', 'round-btn fullbtn live', ICONS.expand);
+    full.setAttribute('aria-label', t('aria.fullscreen'));
+    full.onclick = () => {
+      this.sfx.click();
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+      else void document.documentElement.requestFullscreen?.().catch(() => {});
+    };
+    document.addEventListener('fullscreenchange', () => {
+      full.innerHTML = document.fullscreenElement ? ICONS.shrink : ICONS.expand;
+    });
+    top.append(this.bankEl, xp, full, gear);
 
     this.bubbles = h('div');
     this.bubbles.id = 'bubbles';
@@ -187,6 +198,14 @@ export class Hud {
     this.scrim.onclick = () => this.closeDrawer();
 
     root.append(this.labels, this.bubbles, top, this.bannerEl, this.toastEl, this.actionsEl, this.betbarEl, this.hintBtn, tab, this.scrim, this.drawer);
+
+    // PC: Esc closes the open panel, then the menu
+    window.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const close = [...this.root.querySelectorAll<HTMLButtonElement>('.modal .panel > .close')].pop();
+      if (close) close.click();
+      else if (this.drawer.classList.contains('open')) this.closeDrawer();
+    });
   }
 
   openDrawer() {

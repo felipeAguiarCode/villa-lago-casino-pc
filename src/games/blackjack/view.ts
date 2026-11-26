@@ -251,7 +251,7 @@ export class BlackjackView implements GameView {
   private fromElement(el: HTMLElement): THREE.Vector3 {
     const fr = this.g.stage.renderer.domElement.getBoundingClientRect();
     const r = el.getBoundingClientRect();
-    return this.g.stage.screenToTable((r.left + r.width / 2 - fr.left) / fr.width, (r.top + r.height / 2 - fr.top) / fr.height, 1.6);
+    return this.g.stage.viewToTable((r.left + r.width / 2 - fr.left) / fr.width, (r.top + r.height / 2 - fr.top) / fr.height, 1.6);
   }
 
   private addChip(v: number, el: HTMLElement) {

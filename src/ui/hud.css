@@ -52,32 +52,17 @@ button {
   cursor: pointer;
 }
 
+/* Widescreen frame: the whole window. The HUD unit --u (and --side, --play-x, --play-w) is set by
+   src/ui/layout.ts from the window size; the fallback below only covers the first paint. */
 #frame {
   position: relative;
+  width: 100vw;
   height: 100dvh;
-  aspect-ratio: 9 / 19.5;
-  max-width: 100vw;
   overflow: hidden;
   container-type: size;
   background: #03100a;
-  box-shadow:
-    0 0 0 1px rgba(228, 195, 122, 0.3),
-    0 0 0 6px rgba(0, 0, 0, 0.6),
-    0 30px 90px rgba(0, 0, 0, 0.85);
-}
-
-@media (max-aspect-ratio: 10/16) {
-  #frame {
-    width: 100vw;
-    height: 100dvh;
-    aspect-ratio: auto;
-    box-shadow: none;
-  }
-}
-
-/* HUD unit: 1% of the frame width, but never taller than the 9:19.5 reference allows */
-#frame > * {
-  --u: min(1cqw, 0.4615cqh);
+  --u: 0.5vh;
+  --side: calc(100 * var(--u));
 }
 
 #gl {
@@ -666,6 +651,12 @@ button {
 .betbar.hidden {
   opacity: 0;
   transform: translateY(calc(8 * var(--u)));
+  pointer-events: none;
+}
+
+/* a hidden bar's buttons must not catch clicks meant for the bar shown in its place */
+#hud .actions.hidden .live,
+#hud .betbar.hidden .live {
   pointer-events: none;
 }
 

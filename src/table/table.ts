@@ -49,6 +49,8 @@ export class Table {
   private rail = new THREE.Group();
   private stackMat!: THREE.MeshStandardMaterial[];
   private feltColor = new THREE.Color(FELTS.lobby);
+  /** Center of the felt's light pool (follows the play area). */
+  private feltCenter = { value: new THREE.Vector2(0, 0.1) };
 
   constructor(
     private stage: Stage,
@@ -59,7 +61,7 @@ export class Table {
     if (feltTex) {
       feltTex.colorSpace = THREE.SRGBColorSpace;
       feltTex.wrapS = feltTex.wrapT = THREE.MirroredRepeatWrapping;
-      feltTex.repeat.set(5, 7);
+      feltTex.repeat.set(17, 11);
       feltTex.anisotropy = 8;
       feltTex.needsUpdate = true;
     }
@@ -67,18 +69,19 @@ export class Table {
     // animate the material's own colour object (the constructor copies values, not the reference)
     this.feltColor = this.feltMat.color;
     this.feltMat.onBeforeCompile = (sh) => {
+      sh.uniforms.vlCenter = this.feltCenter;
       sh.vertexShader = 'varying vec3 vlWPos;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvlWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
       sh.fragmentShader =
-        'varying vec3 vlWPos;\n' +
+        'varying vec3 vlWPos;\nuniform vec2 vlCenter;\n' +
         sh.fragmentShader.replace(
           '#include <map_fragment>',
           `#include <map_fragment>
            diffuseColor.rgb *= 2.7;
-           float vlR = length((vlWPos.xz - vec2(0.0, 0.1)) * vec2(0.62, 0.36));
-           diffuseColor.rgb *= 1.0 - 0.62 * smoothstep(0.42, 1.35, vlR);`,
+           float vlR = length((vlWPos.xz - vlCenter) * vec2(0.2, 0.3));
+           diffuseColor.rgb *= 1.0 - 0.6 * smoothstep(0.38, 1.25, vlR);`,
         );
     };
-    this.felt = new THREE.Mesh(new THREE.PlaneGeometry(16, 22).rotateX(-Math.PI / 2), this.feltMat);
+    this.felt = new THREE.Mesh(new THREE.PlaneGeometry(56, 36).rotateX(-Math.PI / 2), this.feltMat);
     this.felt.renderOrder = 0;
     stage.scene.add(this.felt);
     stage.scene.add(this.decals);
@@ -87,6 +90,7 @@ export class Table {
     this.buildTray(backTexture);
     stage.scene.add(this.rail, this.shoe, this.tray);
     stage.onResize(() => this.placeProps());
+    stage.onView(() => this.placeProps());
     this.placeProps();
   }
 
@@ -136,9 +140,9 @@ export class Table {
   private buildRail() {
     const leather = new THREE.MeshStandardMaterial({ color: '#2a160c', roughness: 0.48, metalness: 0 });
     const gold = new THREE.MeshStandardMaterial({ color: '#d9b45c', roughness: 0.28, metalness: 1 });
-    const pad = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 12, 8, 24).rotateZ(Math.PI / 2), leather);
+    const pad = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 48, 8, 24).rotateZ(Math.PI / 2), leather);
     pad.position.y = 0.2;
-    const trim = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 12, 12).rotateZ(Math.PI / 2), gold);
+    const trim = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 48, 12).rotateZ(Math.PI / 2), gold);
     trim.position.set(0, 0.03, -0.27);
     this.rail.add(pad, trim);
   }
@@ -218,14 +222,20 @@ export class Table {
 
   placeProps() {
     const s = this.stage;
-    const shoe = s.screenToTable(0.105, 0.118);
+    // the deck box and the discard tray sit in the top corners of the play area (wider apart
+    // than on the phone, clear of the dealer's cards)
+    const r = s.play;
+    const shoe = s.viewToTable((r.x + r.w * 0.12) / s.w, (r.y + r.h * 0.1) / s.h);
     this.shoe.position.copy(shoe);
     this.shoe.rotation.y = -0.6;
-    const tray = s.screenToTable(0.9, 0.1);
+    const tray = s.viewToTable((r.x + r.w * 0.89) / s.w, (r.y + r.h * 0.08) / s.h);
     this.tray.position.copy(tray);
     this.tray.rotation.y = 0.35;
-    const bottom = s.screenToTable(0.5, 1.0);
-    this.rail.position.set(0, 0, bottom.z - 0.08);
+    // the rail runs along the bottom edge of the widescreen view
+    const bottom = s.viewToTable(0.5, 1.0);
+    this.rail.position.set(s.playCenter.x, 0, bottom.z + 0.06);
+    this.feltCenter.value.set(s.playCenter.x, s.playCenter.z);
+    this.felt.position.x = s.playCenter.x;
     this.shoe.updateMatrixWorld(true);
     this.tray.updateMatrixWorld(true);
   }

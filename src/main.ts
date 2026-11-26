@@ -9,10 +9,12 @@ import '@fontsource/barlow-condensed/latin-600-italic.css';
 import '@fontsource/barlow-condensed/latin-700-italic.css';
 import '@fontsource/barlow-condensed/latin-800-italic.css';
 import './ui/hud.css';
+import './ui/pc.css';
 import { setLang, t } from './core/i18n';
 import { loadSettings } from './core/settings';
 import { App } from './app';
 import { Splash } from './ui/splash';
+import { bindLayoutVars } from './ui/layout';
 
 setLang(loadSettings().lang);
 
@@ -25,6 +27,7 @@ try {
 }
 
 const frame = document.getElementById('frame')!;
+bindLayoutVars(frame);
 const splash = new Splash(frame);
 const app = new App();
 const boot = app.boot((f, m) => splash.progress(f, m));

@@ -356,7 +356,7 @@ export async function finishXP(g: GameCtx, wager: number, net: number, banner: P
 export function fromElement(g: GameCtx, el: HTMLElement): THREE.Vector3 {
   const fr = g.stage.renderer.domElement.getBoundingClientRect();
   const r = el.getBoundingClientRect();
-  return g.stage.screenToTable((r.left + r.width / 2 - fr.left) / fr.width, (r.top + r.height / 2 - fr.top) / fr.height, 1.6);
+  return g.stage.viewToTable((r.left + r.width / 2 - fr.left) / fr.width, (r.top + r.height / 2 - fr.top) / fr.height, 1.6);
 }
 
 /**

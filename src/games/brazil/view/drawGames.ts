@@ -131,7 +131,7 @@ export class VideoPifeView extends BrazilTable<VideoPifeRound> {
     if (fresh) r.placeBet(this.spots.amounts().BET);
     this.paytable?.show(true);
     this.paytable?.highlight(null);
-    const P = this.slots(0.5, 0.52, 9, 0.29);
+    const P = this.slots(0.5, 0.52, 9, 0.4);
     const p3: Card3D[] = [];
     for (let i = 0; i < 9; i++) p3.push(await this.cardsT.deal(r.cards[i], P[i], true, { dur: 0.32 }));
     const { id, picked } = await this.pickCards(p3, 3, [
@@ -184,7 +184,7 @@ export class CanastraDrawView extends BrazilTable<CanastraDrawRound> {
 
   protected async runRound(r: CanastraDrawRound, fresh: boolean) {
     if (fresh) r.placeAnte(this.spots.amounts().ANTE);
-    const P = this.slots(0.5, 0.6, 9, 0.29);
+    const P = this.slots(0.5, 0.6, 9, 0.4);
     const D = this.slots(0.5, 0.17, 9, 0.27);
     const p3: Card3D[] = [];
     const d3: Card3D[] = [];
