@@ -1687,3 +1687,74 @@
     0 calc(0.2 * var(--u)) 0 #0d3d22,
     0 calc(1 * var(--u)) calc(2 * var(--u)) rgba(0, 0, 0, 0.6);
 }
+
+/* ================================================================ power-on screen
+   Before the engine splash, while the browser still keeps the sound off: a console's power light
+   and PRESS ANY KEY. The key press starts the logo together with its boot chime (src/ui/splash.ts). */
+.sp-power {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(7 * var(--u));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.26s;
+}
+
+#splash.power .sp-power {
+  opacity: 1;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+#splash.power-off .sp-power {
+  opacity: 0;
+}
+
+.sp-power i {
+  display: grid;
+  place-items: center;
+  width: calc(17 * var(--u));
+  height: calc(17 * var(--u));
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #23272e, #0d0f13 70%);
+  box-shadow:
+    inset 0 calc(0.4 * var(--u)) 0 rgba(255, 255, 255, 0.08),
+    0 0 0 calc(0.5 * var(--u)) #2c3139,
+    0 calc(1 * var(--u)) calc(3 * var(--u)) rgba(0, 0, 0, 0.7);
+}
+
+.sp-power svg {
+  width: 52%;
+  height: 52%;
+  fill: none;
+  stroke: #ff3b30;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 calc(1.2 * var(--u)) rgba(255, 59, 48, 0.9));
+  animation: sp-led 1.6s ease-in-out infinite;
+}
+
+.sp-power span {
+  font: 700 calc(4.4 * var(--u)) / 1 'Barlow Condensed', sans-serif;
+  letter-spacing: 0.42em;
+  padding-left: 0.42em;
+  color: #c9ced6;
+  animation: sp-blink 1.1s steps(2) infinite;
+}
+
+@keyframes sp-led {
+  50% {
+    stroke: #ff6a5e;
+    filter: drop-shadow(0 0 calc(2.6 * var(--u)) rgba(255, 70, 60, 1));
+  }
+}
+
+@keyframes sp-blink {
+  50% {
+    opacity: 0.2;
+  }
+}

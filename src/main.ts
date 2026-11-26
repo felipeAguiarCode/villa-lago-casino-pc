@@ -13,11 +13,13 @@ import './ui/pc.css';
 import './ui/pcStrings';
 import { setLang, t } from './core/i18n';
 import { loadSettings } from './core/settings';
+import { BootChime } from './audio/bootChime';
 import { App } from './app';
 import { Splash } from './ui/splash';
 import { bindLayoutVars } from './ui/layout';
 
-setLang(loadSettings().lang);
+const settings = loadSettings();
+setLang(settings.lang);
 
 let skipEngine = false;
 try {
@@ -37,9 +39,11 @@ boot.catch((err) => {
   splash.fail(t('load.error'));
 });
 
-splash.run(boot, skipEngine, () => void app.start());
+const chime = new BootChime(settings.volume, settings.muted);
+splash.run(boot, skipEngine, () => void app.start(), chime);
 
 if (import.meta.env.DEV) {
-  (window as unknown as { __vlc: App }).__vlc = app;
+  (window as unknown as { __vlc: App; __chime: BootChime }).__vlc = app;
+  (window as unknown as { __chime: BootChime }).__chime = chime;
   void import('./dev/previews').then((m) => m.installPreviewTools(app));
 }
