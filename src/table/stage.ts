@@ -27,12 +27,19 @@ export class Stage {
   /** The phone version's portrait camera, used only for layout. */
   private layoutCam = new THREE.PerspectiveCamera(30, REF_ASPECT, 0.1, 80);
   /** Tilt of the widescreen camera from vertical (the layout camera keeps the phone's 12°). */
-  viewTilt = THREE.MathUtils.degToRad(30);
+  viewTilt = THREE.MathUtils.degToRad(34);
   /**
    * Part of the portrait layout frame that holds the game. On phones the rest is covered by the
    * HUD; here the HUD moves to the sides, so the camera frames just this band.
    */
-  readonly layoutBand = { u0: 0.04, u1: 0.96, v0: 0.06, v1: 0.87 };
+  readonly layoutBand = { u0: 0.04, u1: 0.96, v0: 0.08, v1: 0.85 };
+  /**
+   * Horizontal stretch of the layout: the phone's tables are tall and narrow, so on a wide screen
+   * their spots, boxes and columns are spread sideways to use the width (cards and chips keep
+   * their size). Set on resize from the room the play area has.
+   */
+  stretch = 1;
+  private bandPxW = 1;
   /** Play area on screen, in CSS px. */
   play: Rect = { x: 0, y: 0, w: 1, h: 1 };
   /** Everything that belongs to the table (cards, chips, prints). */
@@ -97,6 +104,9 @@ export class Stage {
     this.camera.aspect = this.w / this.h;
     this.camera.updateProjectionMatrix();
     this.play = pcLayout(this.w, this.h).play;
+    this.stretch = 1;
+    this.updateCamera();
+    this.stretch = THREE.MathUtils.clamp((this.play.w * 0.97) / this.bandPxW, 1, 1.45);
     this.updateCamera();
     for (const cb of this.resizeCbs) cb();
   }
@@ -159,6 +169,14 @@ export class Stage {
     cam.position.copy(target).addScaledVector(dir, d);
     cam.lookAt(target);
     cam.updateMatrixWorld();
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    for (const p of pts) {
+      q.copy(p).project(cam);
+      x0 = Math.min(x0, q.x);
+      x1 = Math.max(x1, q.x);
+    }
+    this.bandPxW = Math.max(1, ((x1 - x0) / 2) * this.w);
     for (const cb of this.viewCbs) cb();
   }
 
@@ -196,6 +214,7 @@ export class Stage {
     this.ray.setFromCamera(new THREE.Vector2(u * 2 - 1, -(v * 2 - 1)), this.layoutCam);
     this.plane.constant = -y;
     this.ray.ray.intersectPlane(this.plane, out);
+    out.x *= this.stretch;
     return out;
   }
 

@@ -37,6 +37,11 @@ export const FELTS = {
 } as const;
 export type FeltKey = keyof typeof FELTS;
 
+/** PC: the printed texts of every table are drawn larger than on the phone. */
+export const PRINT_SCALE = 1.3;
+/** PC: betting rings are larger too (the chips keep their size). */
+export const RING_SCALE = 1.15;
+
 /** The felt, the rail, the shoe and the discard tray, plus printed decals. */
 export class Table {
   readonly felt: THREE.Mesh;
@@ -105,25 +110,33 @@ export class Table {
     gsap.to(p, { t: 1, duration: 0.8, ease: 'power2.inOut', onUpdate: () => this.feltColor.lerpColors(from, to, p.t) });
   }
 
-  /** Adds a printed decal whose center sits at frame position (u, v) and spans `width` table units. */
+  /**
+   * Adds a printed decal whose center sits at frame position (u, v) and spans `width` table units
+   * (times PRINT_SCALE: the PC edition prints its table texts larger).
+   */
   addDecal(cv: HTMLCanvasElement, u: number, v: number, width: number): THREE.Mesh {
+    const m = this.makeDecal(cv, width * PRINT_SCALE);
+    const p = this.stage.screenToTable(u, v);
+    m.position.set(p.x, 0.0015, p.z);
+    return m;
+  }
+
+  /** Same as addDecal but placed at a world position (betting rings are scaled by RING_SCALE). */
+  addDecalAt(cv: HTMLCanvasElement, x: number, z: number, width: number): THREE.Mesh {
+    const m = this.makeDecal(cv, cv.dataset.ring ? width * RING_SCALE : width);
+    m.position.set(x, 0.0015, z);
+    return m;
+  }
+
+  private makeDecal(cv: HTMLCanvasElement, width: number): THREE.Mesh {
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 8;
     const h = (width * cv.height) / cv.width;
     const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: 1, metalness: 0 });
     const m = new THREE.Mesh(new THREE.PlaneGeometry(width, h).rotateX(-Math.PI / 2), mat);
-    const p = this.stage.screenToTable(u, v);
-    m.position.set(p.x, 0.0015, p.z);
     m.renderOrder = 1;
     this.decals.add(m);
-    return m;
-  }
-
-  /** Same as addDecal but placed at a world position. */
-  addDecalAt(cv: HTMLCanvasElement, x: number, z: number, width: number): THREE.Mesh {
-    const m = this.addDecal(cv, 0.5, 0.5, width);
-    m.position.set(x, 0.0015, z);
     return m;
   }
 

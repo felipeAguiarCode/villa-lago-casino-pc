@@ -6,6 +6,7 @@ import { arcTo, collectCards, dealCard, flipCard, wait, type Place, slideChips }
 import { CARD_H, CARD_W, REST_Y, type Card3D } from '../table/cardMesh';
 import { ChipPile, CHIP_R } from '../table/chips';
 import { betRing } from '../table/prints';
+import { RING_SCALE } from '../table/table';
 import type { Pin } from '../ui/hud';
 import type { GameCtx } from './types';
 
@@ -239,7 +240,7 @@ export class BetSpots {
       const on = this.betting && id === this.active;
       mat.emissive.setRGB(on ? pulse * 1.6 : 0, on ? pulse * 1.25 : 0, on ? pulse * 0.4 : 0);
       const p = stage.toScreen(this.tmp.set(s.pos.x, 0, s.pos.z));
-      const r = stage.toScreen(this.tmp.set(s.pos.x + (s.def.size ?? 0.62) / 2, 0, s.pos.z));
+      const r = stage.toScreen(this.tmp.set(s.pos.x + ((s.def.size ?? 0.62) * RING_SCALE) / 2, 0, s.pos.z));
       const d = Math.max(30, (r.x - p.x) * 2);
       s.hit.style.width = s.hit.style.height = `${d}px`;
       s.hit.style.transform = `translate(${p.x - d / 2}px, ${p.y - d / 2}px)`;

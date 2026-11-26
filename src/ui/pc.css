@@ -1,9 +1,13 @@
 /* ================================================================ PC / widescreen edition
-   The phone HUD keeps its look; this sheet lays it out for a wide screen. The top bar runs across
-   the screen, paytables and boards sit in the left panel, chips and action buttons in the right
-   panel, and the table fills the middle (see src/ui/layout.ts and Stage.fitView).
-   --u is the HUD unit (follows the screen height), --side the width of each side panel, and
-   --col the phone frame's width, used to center the pieces that belonged to the table. */
+   The phone HUD keeps its look; this sheet lays it out for a wide screen:
+   - the top bar keeps to the corners (menu, balance and level on the left; full screen and settings
+     on the right), so the table can reach up to the top edge;
+   - paytables, the mode selector and the bead road sit in the left zone;
+   - chips and every button sit in a dock centered at the bottom;
+   - the table fills the middle (see src/ui/layout.ts and Stage.fitView).
+   --u is the HUD unit (follows the screen height), --u-panel the larger unit of the side panels and
+   the dock, --side the width of each side zone, and --col the phone frame's width, used to center
+   the pieces that belonged to the table. */
 
 #frame {
   --edge: calc(3 * var(--u));
@@ -20,8 +24,11 @@
 }
 
 .topbar .xp {
-  flex: 0 1 calc(96 * var(--u));
-  margin: 0 auto;
+  flex: 0 0 calc(46 * var(--u));
+}
+
+.topbar .fullbtn {
+  margin-left: auto;
 }
 
 .topbar .fullbtn svg {
@@ -29,17 +36,27 @@
   height: calc(6 * var(--u));
 }
 
-/* ---------------------------------------------------------------- side panels
-   The side panels have room, so their pieces use a larger unit (--u-panel). */
+.topbar .menubtn svg {
+  width: calc(6.4 * var(--u));
+  height: calc(6.4 * var(--u));
+}
+
+/* the menu opens from the top-left button, not from a tab on the side */
+.sidetab {
+  display: none;
+}
+
+/* ---------------------------------------------------------------- larger unit: side panels and dock */
 .paytable,
 .roadmap,
 .modebar,
+.trumprow,
 .actions,
 .betbar {
   --u: var(--u-panel);
 }
 
-/* left panel: paytables, mode selector, bead road */
+/* ---------------------------------------------------------------- left zone: paytables, modes, roads */
 .paytable,
 .roadmap,
 .modebar {
@@ -53,18 +70,85 @@
   top: calc(var(--panel-top) + 12.5 * var(--u-panel));
 }
 
-/* ---------------------------------------------------------------- right panel: chips and actions */
+/* ---------------------------------------------------------------- bottom dock: chips and buttons, centered */
 .actions,
 .betbar {
+  left: 0;
+  right: 0;
+  width: auto;
+  bottom: calc(2.6 * var(--u-panel));
+  justify-content: center;
+}
+
+.betbar {
+  flex-direction: row;
+  align-items: center;
+  gap: calc(5 * var(--u));
+}
+
+.betbar .betmeter,
+.betbar .chiprow {
+  margin: 0;
+}
+
+.actions,
+.actions.n4,
+.betbar .btnrow {
+  gap: calc(2.4 * var(--u));
+}
+
+/* dock buttons: a wide pill with the icon on the left and the label inside */
+.actions .vbtn,
+.actions.n4 .vbtn,
+.betbar .vbtn,
+.betbar .btnrow:has(> :nth-child(4)) .vbtn {
+  width: calc(31 * var(--u));
+  height: calc(12.5 * var(--u));
+}
+
+.actions .vbtn .face,
+.betbar .vbtn .face {
+  place-items: center start;
+  padding-left: calc(2.6 * var(--u));
+}
+
+.actions .vbtn svg,
+.betbar .vbtn svg {
+  width: calc(6.6 * var(--u));
+  height: calc(6.6 * var(--u));
+}
+
+.actions .vbtn .lbl,
+.actions.n4 .vbtn .lbl,
+.betbar .vbtn .lbl,
+.betbar .btnrow:has(> :nth-child(4)) .vbtn .lbl {
+  top: 50%;
+  left: calc(10.5 * var(--u));
+  right: calc(1.6 * var(--u));
+  margin: 0;
+  transform: translateY(-50%);
+  font-size: calc(5.4 * var(--u));
+  text-align: center;
+  pointer-events: none;
+}
+
+.vbtn[disabled] .lbl {
+  opacity: 0.75;
+}
+
+/* the hint lamp sits in the bottom-right corner, next to the dock */
+.hintbtn {
+  right: var(--edge);
+  bottom: calc(3.4 * var(--u-panel));
+}
+
+/* Trump 21's trump cards sit in the right zone, above the hint */
+.trumprow {
   left: auto;
   right: var(--edge);
   width: var(--side);
-  bottom: calc(10.5 * var(--u-panel));
-}
-
-.hintbtn {
-  right: calc(var(--edge) + 2 * var(--u));
-  bottom: calc(60 * var(--u-panel));
+  bottom: calc(22 * var(--u-panel));
+  justify-content: center;
 }
 
 /* ---------------------------------------------------------------- pieces centered on the table */
@@ -76,16 +160,6 @@
 .slotcab {
   left: calc(var(--col-l) + 6 * var(--u));
   right: calc(var(--col-l) + 6 * var(--u));
-}
-
-/* Trump 21's trump cards are player actions: they sit in the right panel, above the buttons */
-.trumprow {
-  --u: var(--u-panel);
-  left: auto;
-  right: var(--edge);
-  width: var(--side);
-  bottom: calc(38 * var(--u-panel));
-  justify-content: center;
 }
 
 /* ---------------------------------------------------------------- panels */
@@ -144,7 +218,6 @@
 
   .round-btn:hover,
   .bank-plus:hover,
-  .sidetab:hover,
   .drawer button:hover,
   .modechip:hover,
   .seg button:hover {

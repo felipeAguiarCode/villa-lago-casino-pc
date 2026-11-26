@@ -178,6 +178,7 @@ const CREDITS_EN = `
   <p>Casino Audio — Kenney (kenney.nl), <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0</a>.</p>
   <h4>Textures</h4>
   <p>Felt: "Felt Backgrounds" — jbp4444, OpenGameArt.org, CC0.</p>
+  <p>Table decor: "Brass Goblets" (Tina), "Vintage Pocket Watch" (Tal Swicegood), "Vintage Oil Lamp" (Monsta3D) — Poly Haven, CC0.</p>
   <h4>Cards</h4>
   <p>Court cards (Jack, Queen, King): "English pattern playing cards" — Dmitry Fomin, Wikimedia Commons, CC0. Indices, suits, aces, card back and chips were drawn for this game.</p>
   <h4>Fonts</h4>
@@ -193,6 +194,7 @@ const CREDITS_PT = `
   <p>Casino Audio — Kenney (kenney.nl), <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0</a>.</p>
   <h4>Texturas</h4>
   <p>Feltro: "Felt Backgrounds" — jbp4444, OpenGameArt.org, CC0.</p>
+  <p>Decoração da mesa: "Brass Goblets" (Tina), "Vintage Pocket Watch" (Tal Swicegood), "Vintage Oil Lamp" (Monsta3D) — Poly Haven, CC0.</p>
   <h4>Cartas</h4>
   <p>Figuras (Valete, Dama, Rei): "English pattern playing cards" — Dmitry Fomin, Wikimedia Commons, CC0. Índices, naipes, ases, verso e fichas desenhados para o jogo.</p>
   <h4>Fontes</h4>

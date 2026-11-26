@@ -40,6 +40,7 @@ import { ChipPile, ChipSet } from './table/chips';
 import { Fx } from './table/fx';
 import { Stage } from './table/stage';
 import { Table } from './table/table';
+import { Decor } from './table/decor';
 import { Hud } from './ui/hud';
 import { Lobby } from './ui/lobby';
 import { creditsHtml, openSettings } from './ui/panels';
@@ -98,6 +99,8 @@ export class App {
     this.stage = new Stage(this.frame);
     this.cards = new CardFactory(this.stage.table, this.stage.renderer, this.settings.back);
     this.table = new Table(this.stage, feltImg, () => this.cards.backTexture);
+    // PC: decorative 3D pieces beside the play area (loaded in the background)
+    void new Decor(this.stage).load(base + 'models/');
     this.chips = new ChipSet();
     this.fx = new Fx(this.stage.table);
     this.sfx = new Sfx(base + 'sfx/');

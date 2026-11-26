@@ -149,7 +149,14 @@ export class Hud {
     document.addEventListener('fullscreenchange', () => {
       full.innerHTML = document.fullscreenElement ? ICONS.shrink : ICONS.expand;
     });
-    top.append(this.bankEl, xp, full, gear);
+    // PC: the menu opens from a button in the top-left corner
+    const menu = h('button', 'round-btn menubtn live', ICONS.menu);
+    menu.setAttribute('aria-label', t('aria.menu'));
+    menu.onclick = () => {
+      this.sfx.click();
+      this.openDrawer();
+    };
+    top.append(menu, this.bankEl, xp, full, gear);
 
     this.bubbles = h('div');
     this.bubbles.id = 'bubbles';

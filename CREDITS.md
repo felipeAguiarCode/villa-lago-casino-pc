@@ -8,6 +8,9 @@ Jogo com **fichas fictícias**: sem dinheiro real, apostas reais ou compras (avi
 | Casino Audio (cartas, fichas, embaralhar) | Kenney — https://kenney.nl/assets/casino-audio | CC0 | `public/assets/sfx/` (convertidos de OGG para WAV mono 22 kHz) |
 | Felt Backgrounds (feltro cinza) | jbp4444 — https://opengameart.org/content/felt-backgrounds | CC0 | `public/assets/felt/felt_grey_1k.jpg` (reduzido para 1024 px) |
 | English pattern playing cards (J, Q, K) | Dmitry Fomin — Wikimedia Commons | CC0 | `public/assets/cards/court/` (miniaturas 500 px, convertidas para JPEG) |
+| Brass Goblets (decoração da mesa, PC) | Tina — Poly Haven, https://polyhaven.com/a/brass_goblets | CC0 | `public/assets/models/brass_goblets/` (glTF, texturas 1k) |
+| Vintage Pocket Watch (decoração da mesa, PC) | Tal Swicegood — Poly Haven, https://polyhaven.com/a/vintage_pocket_watch | CC0 | `public/assets/models/vintage_pocket_watch/` (glTF, texturas 1k) |
+| Vintage Oil Lamp (decoração da mesa, PC) | Monsta3D — Poly Haven, https://polyhaven.com/a/vintage_oil_lamp | CC0 | `public/assets/models/vintage_oil_lamp/` (glTF, texturas 1k) |
 | Cinzel | Natanael Gama (via @fontsource) | SIL OFL 1.1 | títulos, mesa |
 | Barlow Condensed | Jeremy Tribby (via @fontsource) | SIL OFL 1.1 | HUD, índices das cartas |
 | three.js | three.js authors | MIT | renderização 3D |

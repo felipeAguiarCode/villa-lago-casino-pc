@@ -54,8 +54,11 @@ Every table opens with a cardistry show picked at random, never the same one twi
 ## PC layout
 
 - **Full window, any widescreen.** The game fills the browser window, and a button in the top bar switches to full screen. The HUD scales with the screen height, from a 1366×768 laptop to a 1440p monitor or an ultrawide.
-- **Table in the middle.** The tables keep the phone version's layouts. A virtual portrait camera places every card, chip and print as before, and a seated widescreen camera, tilted 30°, frames the play area in the middle of the screen (`src/table/stage.ts`). The felt and the padded rail run to the screen edges, and the deck box and discard tray sit in the top corners of the play area.
-- **Side panels.** Paytables, the Three Card mode selector and the baccarat bead road sit on the left. Chips, bet and action buttons, Trump 21's trump cards and the hint lamp sit on the right. Both panels use a larger unit than the table pieces (`src/ui/layout.ts`, `src/ui/pc.css`).
+- **A big table.** The tables keep the phone version's layouts. A virtual portrait camera places every card, chip and print as before. A seated widescreen camera, tilted 34°, frames the play area from the top edge of the screen down to the button dock (`src/table/stage.ts`). The layout is also stretched sideways to use the width: bet circles, boxes and columns spread out, while cards and chips keep their size. Table texts are printed 30% larger and betting circles 15% larger. The felt and the padded rail run to the screen edges.
+- **Top bar in the corners.** The menu button, balance and level sit on the left; full screen and settings on the right. The menu opens from that top-left button.
+- **Buttons centered at the bottom.** Chips and every bet and action button sit in one dock centered at the bottom. The buttons are wide pills with the icon and the label inside. The hint lamp sits in the bottom-right corner.
+- **Side zones.** Paytables, the Three Card mode selector and the baccarat bead road sit on the left. Trump 21's trump cards sit on the right.
+- **3D table decor.** Three CC0 models from Poly Haven stand on the felt beside the play area (`src/table/decor.ts`): an oil lamp whose flame lights the felt, a pocket watch and three brass goblets.
 - **Lobby.** The tables are shown in a three-column grid.
 - **Mouse and keyboard.** Buttons, chips and tables light up on hover, and **Esc** closes the open panel or the menu. Nine-card hands (Video Pife, Canastra Draw) are spread wider.
 
@@ -78,10 +81,10 @@ Vite · TypeScript · three.js · GSAP · Vitest. Game rules are pure TypeScript
 ## Credits
 
 All third-party assets are CC0 or open licensed — see [CREDITS.md](CREDITS.md):
-Kenney *Casino Audio* (CC0), *Felt Backgrounds* by jbp4444 (CC0), English pattern court cards by Dmitry Fomin (CC0), Cinzel and Barlow Condensed (SIL OFL), three.js (MIT), GSAP.
+Kenney *Casino Audio* (CC0), *Felt Backgrounds* by jbp4444 (CC0), English pattern court cards by Dmitry Fomin (CC0), Poly Haven models *Brass Goblets* (Tina), *Vintage Pocket Watch* (Tal Swicegood) and *Vintage Oil Lamp* (Monsta3D) (CC0), Cinzel and Barlow Condensed (SIL OFL), three.js (MIT), GSAP.
 
 ---
 
 ### Português
 
-Versão para PC (tela cheia, widescreen) do cassino de cartas 3D feito com three.js: 28 jogos contra o dealer, a mesa ao centro, as tabelas de pagamento à esquerda e as fichas e ações à direita, com a HUD ampliada para monitores. A versão para celular está em [villa-lago-casino](https://github.com/felipeAguiarCode/villa-lago-casino). Somente fichas fictícias — sem dinheiro real. Rode com `npm install` e `npm run dev`.
+Versão para PC (tela cheia, widescreen) do cassino de cartas 3D feito com three.js: 28 jogos contra o dealer, a mesa grande ao centro, as tabelas de pagamento à esquerda, as fichas e os botões centralizados embaixo, o menu no canto superior esquerdo e uma decoração 3D (lamparina, relógio de bolso e taças de latão, modelos CC0 do Poly Haven). A versão para celular está em [villa-lago-casino](https://github.com/felipeAguiarCode/villa-lago-casino). Somente fichas fictícias — sem dinheiro real. Rode com `npm install` e `npm run dev`.

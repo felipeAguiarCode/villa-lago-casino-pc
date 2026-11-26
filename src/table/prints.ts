@@ -70,17 +70,23 @@ export function betRing(label = '', sub = ''): HTMLCanvasElement {
   g.arc(0, 0, 134, 0, Math.PI * 2);
   g.stroke();
   if (label) {
-    g.globalAlpha = 0.72;
+    g.globalAlpha = 0.78;
     g.fillStyle = INK;
-    g.font = '700 46px "Cinzel", serif';
+    // PC: larger lettering, shrunk only when a long label would leave the ring
+    let size = 54;
+    g.font = `700 ${size}px "Cinzel", serif`;
+    const w = g.measureText(label).width;
+    if (w > 236) size = Math.floor((size * 236) / w);
+    g.font = `700 ${size}px "Cinzel", serif`;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    g.fillText(label, 0, sub ? -12 : 0);
+    g.fillText(label, 0, sub ? -14 : 0);
     if (sub) {
-      g.font = '600 30px "Barlow Condensed", sans-serif';
-      g.fillText(sub, 0, 34);
+      g.font = '600 36px "Barlow Condensed", sans-serif';
+      g.fillText(sub, 0, 38);
     }
   }
+  cv.dataset.ring = '1';
   return cv;
 }
 
