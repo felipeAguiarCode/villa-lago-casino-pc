@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { RouletteSound, type BallPhase } from '../../audio/rouletteSound';
 import type { Sfx } from '../../audio/sfx';
 import { colorOf, pocketIndex, wheelOrder } from './rules';
 import { BALL_R, DIAMONDS, IDLE_SPEED, planSpin, POCKET, surfaceY, TAU, TRACK, WHEEL, Y_REST, type BallPos, type SpinEvent } from './spinPlan';
@@ -229,6 +230,8 @@ export class RouletteWheel {
   private ballIdx = Math.floor(Math.random() * 37);
   private spinning = false;
   private tween: gsap.core.Tween | null = null;
+  /** The ball's sound during a spin (src/audio/rouletteSound.ts). */
+  private rsound: RouletteSound | null = null;
   private owned: { dispose(): void }[] = [];
   private bp: BallPos = { r: 0, y: 0, th: 0 };
 
@@ -491,16 +494,45 @@ export class RouletteWheel {
   spin(n: number, sfx: Sfx): Promise<void> {
     if (this.spinning) return Promise.resolve();
     const plan = planSpin({ phi: this.phi, omega: this.omega, ballIdx: this.ballIdx, n });
-    // sounds that run on their own clock follow the animation speed setting
+    // the plan runs in its own time; the animation speed setting scales it to real time
     const ts = Math.max(0.25, gsap.globalTimeline.timeScale());
+    const mixer = sfx.mixer();
+    const rs = mixer ? new RouletteSound(mixer) : null;
+    this.rsound = rs;
     const sound = (e: SpinEvent) => {
-      if (e.kind === 'launch') {
-        sfx.whoosh(0.7 / ts);
-        sfx.ballRoll((plan.tRotor - plan.tLaunch) / ts);
-      } else if (e.kind === 'diamond') sfx.tick(0.32, 0.55);
-      else if (e.kind === 'rotor') sfx.tick(0.26, 0.8);
-      else if (e.kind === 'land') sfx.tick(0.22 * 0.75 ** e.j, 1 + 0.12 * e.j);
-      else sfx.tick(0.05, 1.35);
+      if (!rs) return;
+      if (e.kind === 'launch') rs.launch();
+      else if (e.kind === 'diamond') rs.diamond(ts);
+      else if (e.kind === 'rotor') rs.rotorDrop();
+      else if (e.kind === 'land') rs.hop(e.j);
+      else rs.settle();
+    };
+    // the ball's state for the rolling sound, from its motion between frames
+    const prev = new THREE.Vector3();
+    let prevTh = 0;
+    let lastT = 0;
+    let lastNow = performance.now();
+    const listen = (t: number) => {
+      const now = performance.now();
+      const dtReal = Math.min(0.1, (now - lastNow) / 1000);
+      lastNow = now;
+      const dT = t - lastT;
+      lastT = t;
+      const pos = this.ball.position;
+      const b = this.bp;
+      if (rs && dT > 1e-5) {
+        const phase: BallPhase = t < plan.tLaunch ? 'lift' : t < plan.tTrack ? 'track' : t < plan.tRotor ? 'stator' : t < plan.tSettle ? 'rotor' : 'rock';
+        const floor = t < plan.tRotor ? surfaceY(b.r) + BALL_R : Y_REST;
+        rs.update(dtReal, {
+          phase,
+          speed: (pos.distanceTo(prev) / dT) * ts,
+          laps: (Math.abs(b.th - prevTh) / dT / TAU) * ts,
+          air: b.y > floor + 0.004,
+          rotor: plan.rotorSpeed(t) * ts,
+        });
+      }
+      prev.copy(pos);
+      prevTh = b.th;
     };
     const place = (o: BallPos, m: THREE.Object3D) => m.position.set(Math.cos(o.th) * o.r, o.y, Math.sin(o.th) * o.r);
     const trail: BallPos = { r: 0, y: 0, th: 0 };
@@ -530,9 +562,12 @@ export class RouletteWheel {
         ease: 'none',
         onUpdate: () => {
           apply(st.t);
+          listen(st.t);
           while (ev < plan.events.length && plan.events[ev].t <= st.t) sound(plan.events[ev++]);
         },
         onComplete: () => {
+          rs?.stop();
+          this.rsound = null;
           this.ghosts.forEach((gh) => (gh.visible = false));
           this.phi = plan.rotorAt(plan.tEnd);
           this.omega = plan.rotorSpeed(plan.tEnd);
@@ -550,6 +585,8 @@ export class RouletteWheel {
   dispose() {
     this.tween?.kill();
     this.tween = null;
+    this.rsound?.stop();
+    this.rsound = null;
     this.group.removeFromParent();
     for (const o of this.owned) o.dispose();
     this.owned = [];

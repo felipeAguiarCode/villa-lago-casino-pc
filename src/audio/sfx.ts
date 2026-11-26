@@ -161,6 +161,15 @@ export class Sfx {
   // ---------------------------------------------------------------- casino machine sounds (PC)
   private noiseBuf: AudioBuffer | null = null;
 
+  /**
+   * The audio context, the master bus and the shared noise buffer, for sound engines that build
+   * their own voices (the roulette ball). Null until the audio has started.
+   */
+  mixer(): { ctx: AudioContext; out: AudioNode; noise: AudioBuffer } | null {
+    if (!this.ready()) return null;
+    return { ctx: this.ctx!, out: this.master!, noise: this.noiseBuffer() };
+  }
+
   /** One second of white noise, made once. */
   private noiseBuffer() {
     const ctx = this.ctx!;
@@ -456,21 +465,6 @@ export class Sfx {
   whoosh(dur = 0.5) {
     if (!this.ready()) return;
     this.noise(this.ctx!.currentTime, dur, 0.12, 'bandpass', 600, 1.4, 2600);
-  }
-
-  /** The ball rolling round a roulette wheel and slowing: `sec` seconds of rolling ticks. */
-  ballRoll(sec = 5) {
-    if (!this.ready()) return;
-    const t = this.ctx!.currentTime;
-    this.noise(t, sec, 0.05, 'bandpass', 900, 0.8, 300);
-    let at = 0;
-    let gap = 0.045;
-    while (at < sec) {
-      const k = at / sec;
-      this.noise(t + at, 0.02, 0.05 + 0.05 * k, 'highpass', 2600, 0.6);
-      at += gap;
-      gap *= 1.035;
-    }
   }
 
   /** A coin spinning and wobbling down on the felt. */
