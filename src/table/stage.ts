@@ -42,6 +42,8 @@ export class Stage {
   private bandPxW = 1;
   /** Play area on screen, in CSS px. */
   play: Rect = { x: 0, y: 0, w: 1, h: 1 };
+  /** The current table uses the whole width (no side zones). */
+  wide = false;
   /** Everything that belongs to the table (cards, chips, prints). */
   readonly table = new THREE.Group();
   w = 1;
@@ -103,7 +105,13 @@ export class Stage {
     this.renderer.setSize(this.w, this.h, false);
     this.camera.aspect = this.w / this.h;
     this.camera.updateProjectionMatrix();
-    this.play = pcLayout(this.w, this.h).play;
+    const lay = pcLayout(this.w, this.h);
+    this.play = { ...lay.play };
+    if (this.wide) {
+      // wide tables (roulette, race track) use the whole width between the screen edges
+      this.play.x = 3 * lay.u;
+      this.play.w = this.w - 6 * lay.u;
+    }
     this.stretch = 1;
     this.updateCamera();
     this.stretch = THREE.MathUtils.clamp((this.play.w * 0.97) / this.bandPxW, 1, 1.45);
@@ -231,7 +239,8 @@ export class Stage {
    * with room to spare are shown larger. Null restores the default band. Call before the table
    * lays itself out (the sideways stretch depends on it).
    */
-  setFraming(b: { v0: number; v1: number; u0?: number; u1?: number } | null) {
+  setFraming(b: { v0: number; v1: number; u0?: number; u1?: number; wide?: boolean } | null) {
+    this.wide = !!b?.wide;
     this.layoutBand.u0 = b?.u0 ?? 0.04;
     this.layoutBand.u1 = b?.u1 ?? 0.96;
     this.layoutBand.v0 = b?.v0 ?? 0.08;

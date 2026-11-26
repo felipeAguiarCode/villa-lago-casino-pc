@@ -100,6 +100,7 @@ export class BlackjackView implements GameView {
     this.phase = 'idle';
     hud.setActions(null);
     hud.setBetBar(null);
+    hud.setStripBet(null);
     hud.showHint(false);
     hud.onHint = () => {};
     for (const c of this.dealer) cards.destroy(c);
@@ -242,6 +243,7 @@ export class BlackjackView implements GameView {
 
   private refreshBetUi() {
     const { hud, wallet } = this.g;
+    hud.setStripBet(this.bet);
     hud.setChipLimit(Math.min(wallet.balance - this.bet, RULES.maxBet - this.bet));
     hud.setBetButton('deal', this.bet >= RULES.minBet && wallet.canAfford(this.bet));
     hud.setBetButton('clear', this.bet > 0);

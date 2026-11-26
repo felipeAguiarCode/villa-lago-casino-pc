@@ -31,9 +31,17 @@ import { Crazy4View } from './games/crazy4/view';
 import { HcfView } from './games/hcf/view';
 import { Slot3View } from './games/slot3/view';
 import { VideoBlackjackView } from './games/videobj/view';
+import { HighLowView } from './games/highlow/view';
+import { RouletteView } from './games/roulette/view';
+import { PartyBlackjackView } from './games/partybj/view';
+import { CoinFlipView } from './games/coinflip/view';
+import { HorsesView } from './games/horses/view';
+import { RedBlackView } from './games/redblack/view';
+import { PickNumberView } from './games/picknum/view';
 import { GAMES } from './games/registry';
 import type { GameCtx, GameView } from './games/types';
-import { collectCards, dealCard, wait } from './table/anim';
+import { collectCards, dealCard, flipCard, wait } from './table/anim';
+import { shuffleShow } from './table/shuffle';
 import { loadCourtArt } from './table/cardFaces';
 import { CardFactory, REST_Y, type Card3D } from './table/cardMesh';
 import { ChipPile, ChipSet } from './table/chips';
@@ -41,6 +49,7 @@ import { Fx } from './table/fx';
 import { Stage } from './table/stage';
 import { PRINT_SCALE, PRINT_SCALE_FOR, Table } from './table/table';
 import { Decor } from './table/decor';
+import { renderBrandBack, TABLE_DECK, type Brand } from './table/deckBrands';
 import { Hud } from './ui/hud';
 import { GameSelect } from './ui/gameSelect';
 import { TitleScreen } from './ui/title';
@@ -76,6 +85,24 @@ export class App {
   decor!: Decor;
   /** Lobby tile id of the table being played ('' in the lobby). */
   currentId = '';
+  private brandBacks = new Map<Brand, HTMLCanvasElement>();
+
+  /**
+   * PC: every table plays with its own deck (src/table/deckBrands.ts): the card backs, the box on
+   * the felt and the cards spilling out of it. The house deck follows the card-back setting.
+   */
+  private applyDeck(id: string) {
+    const deck = TABLE_DECK[id] ?? { brand: 'house' as Brand };
+    let back: HTMLCanvasElement | null = null;
+    if (deck.brand === 'house') this.cards.setBack(this.settings.back);
+    else {
+      back = this.brandBacks.get(deck.brand) ?? renderBrandBack(deck.brand);
+      this.brandBacks.set(deck.brand, back);
+      this.cards.setBackCanvas(back);
+    }
+    const img = this.cards.backTexture.image;
+    this.table.setDeck(deck.brand, !!deck.open, back ?? (img instanceof HTMLCanvasElement ? img : null));
+  }
   ctx!: GameCtx;
   readonly games = new Map<string, GameView>();
   current: GameView | null = null;
@@ -178,6 +205,13 @@ export class App {
     this.games.set('videopife', new VideoPifeView(this.ctx));
     this.games.set('canastradraw', new CanastraDrawView(this.ctx));
     this.games.set('trump21', new Trump21View(this.ctx));
+    this.games.set('highlow', new HighLowView(this.ctx));
+    this.games.set('roulette', new RouletteView(this.ctx));
+    this.games.set('partybj', new PartyBlackjackView(this.ctx));
+    this.games.set('coinflip', new CoinFlipView(this.ctx));
+    this.games.set('horses', new HorsesView(this.ctx));
+    this.games.set('redblack', new RedBlackView(this.ctx));
+    this.games.set('picknum', new PickNumberView(this.ctx));
 
     this.lobby = new GameSelect(this.frame, {
       games: GAMES,
@@ -229,13 +263,65 @@ export class App {
   async start() {
     setFavicon();
     this.frame.classList.add('in-title');
-    // the title shows at once, while the lobby's royal flush is dealt behind it
-    const lobby = this.showLobby(false, false);
+    const lobby = this.showLobby(false, false, false);
+    this.titleDone = lobby.then(() => this.titleShow());
     await new TitleScreen(this.frame).run(() => {
       this.sfx.click();
       this.frame.classList.remove('in-title');
-      void lobby.then(() => this.lobby.show(true));
+      this.titleOn = false;
+      void lobby.then(async () => {
+        this.lobby.show(true);
+        await this.clearTitleCards();
+      });
     });
+  }
+
+  private titleOn = false;
+  private titleCards: Card3D[] = [];
+  /** Resolves when the title screen's shuffle loop has put its deck away. */
+  private titleDone: Promise<void> = Promise.resolve();
+
+  /**
+   * The title screen's table: random cards scattered round the felt, turning over now and then,
+   * and the deck in the middle running one shuffle routine after another until Enter is pressed.
+   */
+  private async titleShow() {
+    this.titleOn = true;
+    const { stage, table, cards } = this;
+    // the title's name fills the top of the screen: the cards keep to the lower half
+    const c0 = stage.screenToTable(0.5, 0.68);
+    const rnd = () => Math.floor(Math.random() * 52);
+    const n = 12;
+    for (let i = 0; i < n && this.titleOn; i++) {
+      const a = -0.45 + (i / (n - 1)) * (Math.PI + 0.9) + (Math.random() - 0.5) * 0.12;
+      const pos = new THREE.Vector3(c0.x + Math.cos(a) * (3.1 + Math.random() * 0.4), REST_Y + i * 0.003, c0.z - 0.15 + Math.sin(a) * (0.8 + Math.random() * 0.15));
+      const c = cards.create(rnd());
+      this.titleCards.push(c);
+      void dealCard(c, table.shoeMouth(), table.shoeYaw, { pos, yaw: (Math.random() - 0.5) * 1.4 }, { faceUp: true, onLand: () => this.sfx.play('place', { vol: 0.3 }) });
+      await wait(0.09);
+    }
+    // the cards "blink": one turns over and comes back up as another card
+    void (async () => {
+      while (this.titleOn) {
+        await wait(0.7 + Math.random() * 0.6);
+        const c = this.titleCards[Math.floor(Math.random() * this.titleCards.length)];
+        if (!this.titleOn || !c) break;
+        await flipCard(c, { dur: 0.35, lift: 0.25, onMid: () => c.setCard(rnd()) });
+      }
+    })();
+    await wait(0.4);
+    while (this.titleOn) {
+      await shuffleShow(this.ctx, { at: [0.5, 0.66], toast: false, quick: true });
+      await wait(0.25);
+    }
+  }
+
+  private async clearTitleCards() {
+    const list = this.titleCards;
+    this.titleCards = [];
+    if (!list.length) return;
+    this.sfx.play('shove', { vol: 0.5 });
+    await collectCards(list, this.table.trayTop(), this.table.trayYaw, (c) => this.cards.destroy(c));
   }
 
   private openTrophies(game?: string) {
@@ -270,8 +356,8 @@ export class App {
     this.stage.setQuality(s.quality);
     if (s.back !== this.backColor) {
       this.backColor = s.back;
-      this.cards.setBack(s.back);
-      this.table.refreshBack(this.cards.backTexture);
+      // PC: the house deck takes the new back; branded tables keep their own deck
+      this.applyDeck(this.currentId || 'lobby');
     }
   }
 
@@ -316,7 +402,7 @@ export class App {
     await collectCards(list, this.table.trayTop(), this.table.trayYaw, (c) => this.cards.destroy(c));
   }
 
-  async showLobby(first = false, select = true) {
+  async showLobby(first = false, select = true, showcase = true) {
     if (this.switching) return;
     this.switching = true;
     if (this.current) {
@@ -326,13 +412,14 @@ export class App {
     this.currentId = '';
     this.stage.setFraming(null);
     this.decor.setTheme('lobby');
+    this.applyDeck('lobby');
     this.table.setFelt('lobby', !first);
     if (select) this.lobby.show(true);
     this.frame.classList.add('in-lobby');
     this.hud.setActions(null);
     this.hud.setBetBar(null);
     this.hud.showHint(false);
-    await this.placeShowcase(!first);
+    if (showcase) await this.placeShowcase(!first);
     this.switching = false;
   }
 
@@ -342,6 +429,7 @@ export class App {
     this.opening = true;
     // a tap during the lobby's opening animation is queued, not ignored
     while (this.switching) await new Promise((r) => setTimeout(r, 50));
+    await this.titleDone;
     this.opening = false;
     if (this.current) return;
     this.switching = true;
@@ -353,6 +441,7 @@ export class App {
     this.stage.setFraming(PC_FRAMING[id] ?? null);
     this.table.printScale = PRINT_SCALE_FOR[id] ?? PRINT_SCALE;
     this.decor.setTheme(id);
+    this.applyDeck(id);
     this.current = g;
     g.preset?.(id);
     await g.enter();

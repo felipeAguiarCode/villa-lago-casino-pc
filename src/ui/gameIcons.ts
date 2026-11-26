@@ -126,6 +126,41 @@ export const GAME_ICONS: Record<string, string> = {
       `<g transform="rotate(-45 32 32)"><rect x="29.5" y="4" width="5" height="40" rx="2" ${ME}/><rect x="22" y="42" width="20" height="4" rx="2" ${ACC}/><rect x="30" y="46" width="4" height="10" ${ACC}/></g>`,
   ),
   reddog: svg(card(12, 38, 18, 26, -8) + card(52, 38, 18, 26, 8) + card(32, 30, 18, 26, 0, '', ACC) + `<path ${ME} d="M28 58h8l-4 5z"/>`),
+  coinflip: svg(
+    `<ellipse cx="32" cy="36" rx="24" ry="24" ${ACC}/><ellipse cx="32" cy="36" rx="19" ry="19" fill="none" stroke="var(--ink, #10141c)" stroke-width="1.6" stroke-dasharray="2 2.4"/>` +
+      crown(32, 30, 18) +
+      text(32, 48, 'VL', 9, INK) +
+      `<path fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" d="M8 14q6-8 14-6M56 14q-6-8-14-6"/>`,
+  ),
+  horses: svg(
+    `<path ${ME} d="M14 56h36l-4-8H18zM20 48l2-14q-6-6-2-14l8-10 4 4 10 2q6 4 4 10l-6-2-2 4q8 6 6 20z"/><circle cx="35" cy="17" r="1.8" ${INK}/>` +
+      `<path ${ACC} d="M22 8l4-6 4 6z"/><rect x="21" y="4" width="10" height="3" rx="1.5" ${ACC}/>`,
+  ),
+  highlow: svg(
+    `<path ${ACC} d="M10 28l10-14 10 14h-6v12h-8V28z"/><path ${ME} d="M34 36l10 14 10-14h-6V24h-8v12z"/>` + card(32, 44, 14, 20, 0, text(32, 48, '?', 10)),
+  ),
+  redblack: svg(
+    card(20, 34, 22, 32, -10, suit('h', 20, 34, 13, 'fill="#c8142c"')) + card(44, 34, 22, 32, 10, suit('s', 44, 34, 13)),
+  ),
+  picknum: svg(
+    [12, 22, 32, 42, 52].map((x, i) => `<rect x="${x - 4.5}" y="22" width="9" height="13" rx="1.5" ${i === 2 ? ACC : ME} stroke="var(--ink, #10141c)" stroke-width="1"/>`).join('') +
+      `<path ${ME} d="M30 58v-14q0-3 3-3t3 3v6l6 1q4 1 3 5l-1 6H32z"/>` +
+      text(32, 16, '7', 12, ACC),
+  ),
+  partybj: svg(
+    card(14, 40, 16, 22, -18) + card(32, 36, 16, 22, 0, text(32, 39, '21', 8)) + card(50, 40, 16, 22, 18) +
+      [14, 32, 50].map((x) => `<circle cx="${x}" cy="${x === 32 ? 16 : 22}" r="4" ${ACC}/>`).join(''),
+  ),
+  roulette: svg(
+    `<circle cx="32" cy="32" r="27" ${ME}/><circle cx="32" cy="32" r="22" ${INK}/>` +
+      Array.from({ length: 18 }, (_, i) => {
+        const a0 = (i / 18) * Math.PI * 2;
+        const a1 = ((i + 1) / 18) * Math.PI * 2;
+        const p = (r: number, a: number) => `${(32 + Math.cos(a) * r).toFixed(1)} ${(32 + Math.sin(a) * r).toFixed(1)}`;
+        return `<path fill="${i === 0 ? '#1f8a4c' : i % 2 ? '#c8142c' : '#141414'}" d="M${p(21, a0)}A21 21 0 0 1 ${p(21, a1)}L${p(13, a1)}A13 13 0 0 0 ${p(13, a0)}Z"/>`;
+      }).join('') +
+      `<circle cx="32" cy="32" r="9" ${ACC}/><path ${INK} d="M31 22h2v20h-2zM22 31h20v2H22z"/><circle cx="46" cy="18" r="3" fill="#fff"/>`,
+  ),
   random: svg(text(32, 50, '?', 46, ACC)),
 };
 

@@ -23,7 +23,7 @@ export interface GameSelectDeps {
   tick: () => void;
 }
 
-const COLS = 6;
+const COLS = 8;
 const RANDOM = 'random';
 
 /**

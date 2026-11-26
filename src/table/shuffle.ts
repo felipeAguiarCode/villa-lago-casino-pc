@@ -24,6 +24,8 @@ export interface ShuffleOpts {
   to?: 'shoe' | THREE.Vector3;
   /** Forces one routine by name (testing). */
   routine?: string;
+  /** False: no "shuffling · tap to skip" toast and no tap to speed up (the title screen's loop). */
+  toast?: boolean;
 }
 
 const STEP = 0.0026;
@@ -514,8 +516,10 @@ export async function shuffleShow(ctx: ShuffleCtx, o: ShuffleOpts = {}): Promise
     show.rate *= 3.5;
     for (const tween of show.live) tween.timeScale(show.rate);
   };
-  window.addEventListener('pointerdown', speedUp);
-  hud.toast(`${t('toast.shuffling')} · ${t('toast.skip')}`, o.quick ? 1400 : 2600);
+  if (o.toast !== false) {
+    window.addEventListener('pointerdown', speedUp);
+    hud.toast(`${t('toast.shuffling')} · ${t('toast.skip')}`, o.quick ? 1400 : 2600);
+  }
 
   const stackAt = (list: Card3D[], p: V3, yaw = 0) =>
     list.forEach((c, i) => {

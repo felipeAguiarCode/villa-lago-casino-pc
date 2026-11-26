@@ -10,6 +10,8 @@ export interface Framing {
   v1: number;
   u0?: number;
   u1?: number;
+  /** Uses the whole screen width (no side zones): roulette, the race track. */
+  wide?: boolean;
 }
 
 export const PC_FRAMING: Record<string, Framing> = {
@@ -36,4 +38,11 @@ export const PC_FRAMING: Record<string, Framing> = {
   paigow: { v0: 0.1, v1: 0.845 },
   war: { v0: 0.16, v1: 0.83 },
   reddog: { v0: 0.19, v1: 0.82 },
+  highlow: { v0: 0.1, v1: 0.79 },
+  redblack: { v0: 0.1, v1: 0.76 },
+  picknum: { v0: 0.09, v1: 0.79 },
+  roulette: { u0: -1.12, u1: 2.12, v0: 0.215, v1: 0.79, wide: true },
+  partybj: { v0: 0.08, v1: 0.88, u0: -0.44, u1: 1.44, wide: true },
+  coinflip: { v0: -0.04, v1: 0.76, u0: -0.08, u1: 1.08 },
+  horses: { v0: -0.05, v1: 0.82, u0: -1.25, u1: 2.25, wide: true },
 };

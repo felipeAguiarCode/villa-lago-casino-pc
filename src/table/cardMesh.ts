@@ -154,8 +154,13 @@ export class CardFactory {
   }
 
   setBack(color: BackColor) {
+    this.setBackCanvas(renderBack(color));
+  }
+
+  /** PC: a back painted elsewhere (the decks of the brands, src/table/deckBrands.ts). */
+  setBackCanvas(cv: HTMLCanvasElement) {
     const old = this.backTexture;
-    this.backTexture = this.makeTex(renderBack(color));
+    this.backTexture = this.makeTex(cv);
     for (const m of this.backMats) {
       m.map = this.backTexture;
       m.needsUpdate = true;

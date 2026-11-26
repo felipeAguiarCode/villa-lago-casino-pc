@@ -3,6 +3,7 @@ import { BOX_D, BOX_T, DeckBox } from './deckBox';
 import gsap from 'gsap';
 import type { Stage } from './stage';
 import { CARD_H, CARD_W } from './cardMesh';
+import type { Brand } from './deckBrands';
 
 export const FELTS = {
   lobby: '#14583a',
@@ -34,6 +35,13 @@ export const FELTS = {
   hcf: '#2a2f6e',
   slot3: '#5e0f2c',
   videobj: '#0c1d46',
+  highlow: '#6b1419',
+  redblack: '#16613a',
+  picknum: '#1d3f9a',
+  roulette: '#0f6638',
+  partybj: '#143a78',
+  coinflip: '#163d5c',
+  horses: '#2f6b2c',
 } as const;
 export type FeltKey = keyof typeof FELTS;
 
@@ -195,8 +203,11 @@ export class Table {
   private buildShoe(backTexture: () => THREE.Texture) {
     const img = backTexture().image;
     this.deckBox = new DeckBox(img instanceof HTMLCanvasElement ? img : null);
-    this.shoe.add(this.deckBox.group);
+    this.shoe.add(this.deckBox.group, this.spread);
+    this.backTexture = backTexture;
   }
+
+  private backTexture: () => THREE.Texture = () => new THREE.Texture();
 
   private buildTray(backTexture: () => THREE.Texture) {
     const glass = new THREE.MeshStandardMaterial({ color: '#cfe3ff', roughness: 0.08, metalness: 0, transparent: true, opacity: 0.22 });
@@ -205,6 +216,39 @@ export class Table {
     this.trayStack = new THREE.Mesh(new THREE.BoxGeometry(CARD_W, 1, CARD_H), this.stackMaterials(backTexture));
     this.tray.add(box, this.trayStack);
     this.setTrayFill(0);
+  }
+
+  /** Cards spread out of the box across the felt. */
+  private spread = new THREE.Group();
+
+  /**
+   * PC: puts the table's deck on the felt: the box of its brand, open or sealed, and a ribbon of
+   * cards spilling out of it. Call after the card factory's back was set to the brand's back.
+   */
+  setDeck(brand: Brand, open: boolean, back: HTMLCanvasElement | null) {
+    this.deckBox.setBrand(brand, back);
+    const tex = this.backTexture();
+    this.deckBox.setOpen(open, tex);
+    this.refreshBack(tex);
+    this.spread.clear();
+    if (!open) return;
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.4 });
+    const n = 11;
+    for (let i = 0; i < n; i++) {
+      const c = new THREE.Mesh(new THREE.PlaneGeometry(CARD_W, CARD_H).rotateX(-Math.PI / 2), mat);
+      // a ribbon running from beside the box down toward the player (the box itself lies turned,
+      // so the ribbon's direction is given in its local axes)
+      const k = i / (n - 1);
+      c.position.set(0.1 + k * 1.05, 0.004 + i * 0.0015, 0.78 + k * 0.92);
+      c.rotation.y = -0.85 + k * 0.35;
+      this.spread.add(c);
+    }
+  }
+
+  /** Shows or hides the deck box and the discard tray (tables without cards hide them). */
+  setProps(v: boolean) {
+    this.shoe.visible = v;
+    this.tray.visible = v;
   }
 
   /** 0..1 of the shoe still loaded (the sealed box doesn't show it). */

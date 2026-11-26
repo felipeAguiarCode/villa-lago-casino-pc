@@ -110,7 +110,7 @@ export class Sfx {
     this.tone(2480, t, 0.04, 'triangle', 0.05);
   }
 
-  /** Bright arpeggio for a win; `big` adds a shimmering tail (blackjack, top hands). */
+  /** Bright arpeggio and a few coins for a win; `big` adds the casino bell and a coin shower. */
   win(big = false) {
     if (!this.ready()) return;
     const t = this.ctx!.currentTime;
@@ -119,15 +119,184 @@ export class Sfx {
       this.tone(f, t + i * 0.075, 0.45, 'triangle', 0.13);
       this.tone(f * 2, t + i * 0.075, 0.25, 'sine', 0.04);
     });
-    if (big)
+    this.coins(big ? 18 : 5, 0.3);
+    if (big) {
+      this.bell(0.35);
       for (let i = 0; i < 10; i++) this.tone(2600 + Math.random() * 1600, t + 0.45 + i * 0.05, 0.25, 'sine', 0.035);
+    }
   }
 
+  /** A "wah-wah" for a lost hand: two falling notes through a closing filter. */
   lose() {
     if (!this.ready()) return;
+    const ctx = this.ctx!;
+    const t = ctx.currentTime;
+    [
+      [392, 330, 0],
+      [330, 247, 0.26],
+    ].forEach(([f0, f1, d]) => {
+      const o = ctx.createOscillator();
+      const f = ctx.createBiquadFilter();
+      const g = ctx.createGain();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(f0, t + d);
+      o.frequency.exponentialRampToValueAtTime(f1, t + d + 0.42);
+      f.type = 'lowpass';
+      f.frequency.setValueAtTime(1800, t + d);
+      f.frequency.exponentialRampToValueAtTime(380, t + d + 0.45);
+      g.gain.setValueAtTime(0, t + d);
+      g.gain.linearRampToValueAtTime(0.07, t + d + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0008, t + d + 0.5);
+      o.connect(f).connect(g).connect(this.master!);
+      o.start(t + d);
+      o.stop(t + d + 0.55);
+    });
+  }
+
+  // ---------------------------------------------------------------- casino machine sounds (PC)
+  private noiseBuf: AudioBuffer | null = null;
+
+  private noise(at: number, dur: number, vol: number, filter: BiquadFilterType, freq: number, q = 1, freqTo?: number) {
+    const ctx = this.ctx!;
+    if (!this.noiseBuf) {
+      this.noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const d = this.noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuf;
+    src.loop = true;
+    const f = ctx.createBiquadFilter();
+    f.type = filter;
+    f.frequency.setValueAtTime(freq, at);
+    if (freqTo) f.frequency.exponentialRampToValueAtTime(freqTo, at + dur);
+    f.Q.value = q;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, at);
+    g.gain.linearRampToValueAtTime(vol, at + Math.min(0.01, dur / 4));
+    g.gain.exponentialRampToValueAtTime(0.0008, at + dur);
+    src.connect(f).connect(g).connect(this.master!);
+    src.start(at, Math.random() * 0.5);
+    src.stop(at + dur + 0.05);
+  }
+
+  /** The mechanical clunk of a machine button. */
+  button() {
+    if (!this.ready()) return;
     const t = this.ctx!.currentTime;
-    this.tone(392, t, 0.28, 'sine', 0.1);
-    this.tone(311, t + 0.16, 0.5, 'sine', 0.1);
+    this.noise(t, 0.05, 0.25, 'bandpass', 2400, 1.2);
+    this.tone(140, t, 0.09, 'sine', 0.16);
+    this.tone(620, t + 0.004, 0.04, 'square', 0.025);
+  }
+
+  /** One metallic coin ding. */
+  private coin(at: number, vol = 0.05) {
+    const f = 2600 + Math.random() * 1500;
+    this.tone(f, at, 0.32, 'sine', vol);
+    this.tone(f * 1.51, at, 0.18, 'sine', vol * 0.5);
+    this.tone(f * 2.37, at, 0.1, 'sine', vol * 0.3);
+  }
+
+  /** Coins dropping into a tray (slot payout); `n` coins after `delay` seconds. */
+  coins(n = 8, delay = 0) {
+    if (!this.ready()) return;
+    const t = this.ctx!.currentTime + delay;
+    let at = t;
+    for (let i = 0; i < n; i++) {
+      at += 0.035 + Math.random() * 0.045;
+      this.coin(at, 0.035 + Math.random() * 0.03);
+    }
+  }
+
+  /** The casino bell. */
+  bell(delay = 0) {
+    if (!this.ready()) return;
+    const t = this.ctx!.currentTime + delay;
+    for (let k = 0; k < 6; k++)
+      [1, 2.76, 5.4, 8.9].forEach((m, i) => this.tone(880 * m, t + k * 0.11, 0.9 - i * 0.18, 'sine', 0.06 / (i + 1)));
+  }
+
+  /** Jackpot: bell, a rising run and a long coin shower. */
+  jackpot() {
+    if (!this.ready()) return;
+    const t = this.ctx!.currentTime;
+    [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) => this.tone(f, t + i * 0.07, 0.5, 'square', 0.045));
+    this.bell(0.45);
+    this.coins(40, 0.5);
+  }
+
+  /** A short tick (wheel frets, reels, pegs). */
+  tick(vol = 0.12, pitch = 1) {
+    if (!this.ready()) return;
+    const t = this.ctx!.currentTime;
+    this.noise(t, 0.025, vol, 'highpass', 3200 * pitch, 0.7);
+    this.tone(1900 * pitch, t, 0.03, 'triangle', vol * 0.25);
+  }
+
+  /** An airy whoosh (a coin toss, a quick spin). */
+  whoosh(dur = 0.5) {
+    if (!this.ready()) return;
+    this.noise(this.ctx!.currentTime, dur, 0.12, 'bandpass', 600, 1.4, 2600);
+  }
+
+  /** The ball rolling round a roulette wheel and slowing: `sec` seconds of rolling ticks. */
+  ballRoll(sec = 5) {
+    if (!this.ready()) return;
+    const t = this.ctx!.currentTime;
+    this.noise(t, sec, 0.05, 'bandpass', 900, 0.8, 300);
+    let at = 0;
+    let gap = 0.045;
+    while (at < sec) {
+      const k = at / sec;
+      this.noise(t + at, 0.02, 0.05 + 0.05 * k, 'highpass', 2600, 0.6);
+      at += gap;
+      gap *= 1.035;
+    }
+  }
+
+  /** A coin spinning and wobbling down on the felt. */
+  coinSpin(sec = 1.6) {
+    if (!this.ready()) return;
+    const t = this.ctx!.currentTime;
+    let at = 0;
+    let gap = 0.03;
+    while (at < sec) {
+      this.tone(3200 + Math.random() * 300, t + at, 0.05, 'sine', 0.03 * (1 - at / sec) + 0.01);
+      at += gap;
+      gap *= 1.07;
+    }
+    this.coin(t + sec, 0.07);
+  }
+
+  /** The bugle call to the post (race start). */
+  fanfare() {
+    if (!this.ready()) return;
+    const t = this.ctx!.currentTime;
+    const seq: [number, number][] = [
+      [523, 0.14],
+      [659, 0.14],
+      [784, 0.14],
+      [1047, 0.3],
+      [784, 0.14],
+      [1047, 0.5],
+    ];
+    let at = 0;
+    for (const [f, d] of seq) {
+      this.tone(f, t + at, d + 0.08, 'sawtooth', 0.035);
+      this.tone(f * 2, t + at, d, 'triangle', 0.02);
+      at += d;
+    }
+  }
+
+  /** Hooves on turf for `sec` seconds. */
+  gallop(sec = 6) {
+    if (!this.ready()) return;
+    const t = this.ctx!.currentTime;
+    for (let at = 0; at < sec; at += 0.16 + Math.random() * 0.03)
+      [0, 0.05, 0.09].forEach((d) => {
+        this.noise(t + at + d, 0.05, 0.06, 'lowpass', 420, 0.9);
+        this.tone(90 + Math.random() * 30, t + at + d, 0.06, 'sine', 0.05);
+      });
   }
 
   push() {
@@ -141,5 +310,6 @@ export class Sfx {
     if (!this.ready()) return;
     const t = this.ctx!.currentTime;
     [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone(f, t + i * 0.09, 0.6, 'triangle', 0.12));
+    this.bell(0.45);
   }
 }

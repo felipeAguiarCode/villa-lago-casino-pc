@@ -311,6 +311,14 @@ export class ChipPile {
     this.values = [];
   }
 
+  /** Takes the top chip off (returns its value, 0 when empty). */
+  popChip(): number {
+    const m = this.meshes.pop();
+    const v = this.values.pop() ?? 0;
+    if (m) this.group.remove(m);
+    return v;
+  }
+
   dispose() {
     this.clear();
     this.group.removeFromParent();

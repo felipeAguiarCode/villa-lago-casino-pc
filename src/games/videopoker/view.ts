@@ -333,7 +333,8 @@ export class VideoPokerView implements GameView {
       const mask = scoringMask(this.hand, h);
       highlightCards(this.g, this.c3.filter((_, i) => mask[i]));
       fx.burst(new THREE.Vector3(0, 0.3, this.places()[2].pos.z), r <= 3 ? 180 : 80);
-      sfx.win(r <= 5);
+      if (r <= 3) sfx.jackpot();
+      else sfx.win(r <= 5);
       if (r <= 5) this.g.trophy('big');
       banner = hud.banner(t(VP_ROWS[r].key).toUpperCase(), `+${money(won)}`, r <= 5 ? 'win' : 'win small', r <= 3 ? 1900 : 1300);
     } else {

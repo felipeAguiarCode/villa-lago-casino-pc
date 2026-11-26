@@ -5,7 +5,7 @@ import type { Sfx } from '../audio/sfx';
 import type { ChipSet } from '../table/chips';
 import { ICONS, type IconName } from './icons';
 
-export type BtnColor = 'red' | 'blue' | 'green' | 'gold' | 'purple' | 'dark';
+export type BtnColor = 'red' | 'blue' | 'green' | 'gold' | 'purple' | 'dark' | 'orange' | 'pink';
 
 export interface BtnSpec {
   id: string;
@@ -97,6 +97,9 @@ export class Hud {
   private shownBalance = 0;
   private balTween: gsap.core.Tween | null = null;
   private toastT = 0;
+  private stripBal!: HTMLElement;
+  private stripBet!: HTMLElement;
+  private stripBetEl!: HTMLElement;
   private bannerQ: Promise<void> = Promise.resolve();
 
   onPlus = () => {};
@@ -186,7 +189,21 @@ export class Hud {
         },
       });
     const left = h('div', 'strip-side left');
-    left.append(key('lobby', t('key.lobby'), 'dark', 'home', () => this.onMenu('lobby')), key('rules', t('key.rules'), 'blue', 'info', () => this.onMenu('rules')));
+    left.append(key('lobby', t('key.lobby'), 'dark', 'home', () => this.onMenu('lobby')), key('rules', t('key.rules'), 'orange', 'info', () => this.onMenu('rules')));
+    // the machine's displays: balance (with the free-refill button) and the bet on the table
+    this.stripBal = h('b');
+    const bal = h('div', 'strip-lcd bal', `<span class="lcd-chip">${ICONS.chip}</span>`);
+    const balPlus = h('button', 'lcd-plus live', ICONS.plus);
+    balPlus.setAttribute('aria-label', t('aria.free'));
+    balPlus.onclick = () => {
+      this.sfx.click();
+      this.onPlus();
+    };
+    bal.append(this.stripBal, balPlus);
+    this.stripBet = h('b');
+    this.stripBetEl = h('div', 'strip-lcd bet hidden', `<small>${t('key.bet')}</small>`);
+    this.stripBetEl.append(this.stripBet);
+    left.append(bal, this.stripBetEl);
     const right = h('div', 'strip-side right');
     this.hintBtn = key('hint', t('key.hint'), 'gold', 'bulb', () => this.onHint());
     this.hintBtn.classList.add('hidden');
@@ -221,6 +238,12 @@ export class Hud {
 
     root.append(this.labels, this.bubbles, top, strip, this.bannerEl, this.toastEl, this.actionsEl, this.betbarEl, tab, this.scrim, this.drawer);
 
+    // PC: every machine key clunks when pressed
+    root.addEventListener('pointerdown', (e) => {
+      const k = (e.target as HTMLElement).closest?.('.strip .vbtn, .actions .vbtn, .betbar .vbtn') as HTMLButtonElement | null;
+      if (k && !k.disabled) this.sfx.button();
+    });
+
     // PC: Esc closes the open panel, then the menu
     window.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
@@ -246,6 +269,7 @@ export class Hud {
     if (!animate) {
       this.shownBalance = n;
       this.bankVal.textContent = money(n);
+      this.stripBal.textContent = money(n);
       return;
     }
     const up = n > this.shownBalance;
@@ -257,6 +281,7 @@ export class Hud {
       onUpdate: () => {
         this.shownBalance = o.v;
         this.bankVal.textContent = money(Math.abs(o.v - n) < 0.01 ? n : Math.round(o.v));
+        this.stripBal.textContent = this.bankVal.textContent;
       },
     });
     if (up) {
@@ -337,6 +362,17 @@ export class Hud {
   setLed(id: string, value: string) {
     const el = this.betbarEl.querySelector<HTMLElement>(`[data-led="${id}"]`);
     if (el) el.textContent = value;
+  }
+
+  /** The BET display of the control strip (null hides it, for tables with their own meters). */
+  setStripBet(n: number | null) {
+    this.stripBetEl.classList.toggle('hidden', n === null);
+    if (n !== null) this.stripBet.textContent = money(n);
+  }
+
+  /** Lights up one chip of the tray (tables where a chip is chosen, then placed). */
+  markChip(v: number | null) {
+    this.betbarEl.querySelectorAll<HTMLButtonElement>('.chipbtn').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === v));
   }
 
   /** Greys out chips the player can't afford. */

@@ -27,7 +27,14 @@ export interface SpotDef {
   /** Spot is filled by game actions (Play/Call), not by the player in the betting phase. */
   auto?: boolean;
   max?: number;
+  /** False: no printed ring (the felt print draws the betting place, e.g. the roulette layout). */
+  ring?: boolean;
+  /** Hit area: width and height in table units instead of the ring's circle (layout cells). */
+  hitW?: number;
+  hitH?: number;
 }
+
+const RING_STUB_GEO = new THREE.PlaneGeometry(0.01, 0.01);
 
 export class Spot {
   pile: ChipPile;
@@ -42,7 +49,10 @@ export class Spot {
   ) {
     this.pos = g.stage.screenToTable(def.u, def.v);
     const size = def.size ?? 0.62;
-    this.ring = g.table.addDecalAt(betRing(def.label, def.sub ?? ''), this.pos.x, this.pos.z, size);
+    if (def.ring === false) {
+      this.ring = new THREE.Mesh(RING_STUB_GEO, new THREE.MeshStandardMaterial({ visible: false }));
+      this.ring.position.copy(this.pos);
+    } else this.ring = g.table.addDecalAt(betRing(def.label, def.sub ?? ''), this.pos.x, this.pos.z, size);
     this.pile = new ChipPile(g.chips, g.stage.table, this.pos.clone());
     this.label = g.hud.pin('betlabel');
     this.label.el.classList.add('small');
@@ -67,6 +77,8 @@ export class BetSpots {
     private g: GameCtx,
     defs: SpotDef[],
     private onSelect: (id: string) => void = () => {},
+    /** Right-click on a betting place. */
+    public onTake: (id: string) => void = () => {},
   ) {
     for (const d of defs) {
       const s = new Spot(d, g);
@@ -74,6 +86,10 @@ export class BetSpots {
         if (!this.betting || d.auto || d.mirror) return;
         g.sfx.click();
         this.select(d.id);
+      };
+      s.hit.oncontextmenu = (e) => {
+        e.preventDefault();
+        if (this.betting && !d.auto && !d.mirror) this.onTake(d.id);
       };
       this.spots.set(d.id, s);
     }
@@ -240,10 +256,20 @@ export class BetSpots {
       const on = this.betting && id === this.active;
       mat.emissive.setRGB(on ? pulse * 1.6 : 0, on ? pulse * 1.25 : 0, on ? pulse * 0.4 : 0);
       const p = stage.toScreen(this.tmp.set(s.pos.x, 0, s.pos.z));
-      const r = stage.toScreen(this.tmp.set(s.pos.x + ((s.def.size ?? 0.62) * RING_SCALE) / 2, 0, s.pos.z));
-      const d = Math.max(30, (r.x - p.x) * 2);
-      s.hit.style.width = s.hit.style.height = `${d}px`;
-      s.hit.style.transform = `translate(${p.x - d / 2}px, ${p.y - d / 2}px)`;
+      if (s.def.hitW && s.def.hitH) {
+        // a rectangular layout cell
+        const a = stage.toScreen(this.tmp.set(s.pos.x - s.def.hitW / 2, 0, s.pos.z - s.def.hitH / 2));
+        const b = stage.toScreen(this.tmp.set(s.pos.x + s.def.hitW / 2, 0, s.pos.z + s.def.hitH / 2));
+        s.hit.style.width = `${Math.max(8, b.x - a.x)}px`;
+        s.hit.style.height = `${Math.max(8, b.y - a.y)}px`;
+        s.hit.style.borderRadius = '0';
+        s.hit.style.transform = `translate(${a.x}px, ${a.y}px)`;
+      } else {
+        const r = stage.toScreen(this.tmp.set(s.pos.x + ((s.def.size ?? 0.62) * RING_SCALE) / 2, 0, s.pos.z));
+        const d = Math.max(30, (r.x - p.x) * 2);
+        s.hit.style.width = s.hit.style.height = `${d}px`;
+        s.hit.style.transform = `translate(${p.x - d / 2}px, ${p.y - d / 2}px)`;
+      }
       s.hit.style.display = this.betting && !s.def.auto && !s.def.mirror ? 'block' : 'none';
       const amt = s.amount;
       if (amt > 0) {
@@ -328,7 +354,8 @@ export async function resultBanner(g: GameCtx, net: number, wager: number, opts:
   const { hud, sfx } = g;
   if (opts.big && net > 0) {
     g.trophy('big');
-    sfx.win(true);
+    // PC: a special hand rings the jackpot
+    sfx.jackpot();
     return hud.banner(opts.big, `+${money(net)}`, 'win', 1700);
   }
   if (net > 0) {

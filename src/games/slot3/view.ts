@@ -217,9 +217,18 @@ export class Slot3View implements GameView {
     const total = (imgs.length - 1) * h;
     gsap.set(strip, { y: -total });
     reel.classList.add('spinning');
+    // PC: the reel ticks as cards pass its window, slowing with it
+    let last = Math.round(-total / h);
+    const tick = () => {
+      const k = Math.round((gsap.getProperty(strip, 'y') as number) / h);
+      if (k !== last) {
+        last = k;
+        if (i === 0) this.g.sfx.tick(0.07, 1.2);
+      }
+    };
     return new Promise((res) => {
       gsap
-        .timeline({ onComplete: () => res() })
+        .timeline({ onComplete: () => res(), onUpdate: tick })
         .to(strip, { y: -h * 3, duration: 1.1 + i * 0.45, ease: 'power1.in' })
         .add(() => reel.classList.remove('spinning'))
         .to(strip, { y: 0, duration: 0.55, ease: 'back.out(2.2)' })
@@ -260,7 +269,8 @@ export class Slot3View implements GameView {
       wallet.credit(won);
       this.lastWin = won;
       fx.burst(stage.screenToTable(0.5, 0.42, 0.3), row <= 2 ? 180 : 80);
-      sfx.win(row <= 2);
+      if (row <= 2) sfx.jackpot();
+      else sfx.win(false);
       if (row <= 2) this.g.trophy('big');
       banner = hud.banner(t(ROW_NAME[key]).toUpperCase(), `+${money(won)}`, row <= 3 ? 'win' : 'win small', row <= 2 ? 1900 : 1300);
     } else {

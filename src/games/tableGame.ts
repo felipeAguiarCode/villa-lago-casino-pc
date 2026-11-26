@@ -38,6 +38,15 @@ export abstract class TableGame implements GameView {
   private discards = 0;
   /** False when the game's own rules engine takes the opening bet from the wallet. */
   protected debitsOnDeal = true;
+  /** False for tables without cards (coin, race, wheel): no shuffle show, no deck box or tray. */
+  protected usesCards = true;
+  /**
+   * True for tables with many betting places (roulette): the chip buttons choose a denomination and
+   * a click on a betting place puts that chip there (right-click takes one off).
+   */
+  protected placeOnSpotClick = false;
+  /** Denomination chosen in placeOnSpotClick mode. */
+  protected chipValue = 25;
 
   constructor(
     protected g: GameCtx,
@@ -72,7 +81,8 @@ export abstract class TableGame implements GameView {
     const { stage, table, hud } = this.g;
     stage.setZoom(1);
     table.setFelt(this.felt);
-    this.spots = new BetSpots(this.g, this.spotDefs());
+    table.setProps(this.usesCards);
+    this.spots = new BetSpots(this.g, this.spotDefs(), (id) => this.onSpotClick(id), (id) => this.takeChip(id));
     this.decorate();
     this.off.push(stage.onFrame(() => this.sync()));
     hud.onHint = () => this.hint();
@@ -80,7 +90,8 @@ export abstract class TableGame implements GameView {
     table.setShoeFill(0);
     table.setTrayFill(0);
     this.paytable?.show(false);
-    await shuffleShow(this.g);
+    if (this.usesCards) await shuffleShow(this.g);
+    else await wait(0.35);
     if (this.phase !== 'shuffling') return;
     this.shoe.shuffle();
     this.discards = 0;
@@ -97,6 +108,7 @@ export abstract class TableGame implements GameView {
     this.phase = 'idle';
     hud.setActions(null);
     hud.setBetBar(null);
+    hud.setStripBet(null);
     hud.showHint(false);
     hud.onHint = () => {};
     this.cardsT.destroyAll();
@@ -107,6 +119,7 @@ export abstract class TableGame implements GameView {
     this.off.forEach((f) => f());
     this.off = [];
     table.clearDecals();
+    table.setProps(true);
     stage.setZoom(1);
     this.cleanup();
   }
@@ -123,7 +136,7 @@ export abstract class TableGame implements GameView {
     this.paytable?.remove();
     this.paytable = null;
     this.g.table.clearDecals();
-    this.spots = new BetSpots(this.g, this.spotDefs());
+    this.spots = new BetSpots(this.g, this.spotDefs(), (id) => this.onSpotClick(id), (id) => this.takeChip(id));
     this.decorate();
     this.toBetting();
     this.busy = true;
@@ -148,19 +161,45 @@ export abstract class TableGame implements GameView {
     hud.highlight(null);
     hud.setBetBar({
       chips: CHIP_ROW,
-      onChip: (v, el) => this.addChip(v, el),
+      onChip: (v, el) => (this.placeOnSpotClick ? this.pickChip(v) : this.addChip(v, el)),
       buttons: [
         { id: 'clear', label: t('btn.clear'), color: 'red', icon: 'trash', onClick: () => this.clearBets() },
         { id: 'deal', label: t('btn.deal'), color: 'green', icon: 'deal', onClick: () => this.deal() },
         { id: 'x2', label: t('btn.double2x'), color: 'blue', icon: 'double', onClick: () => this.doubleBets() },
       ],
     });
+    if (this.placeOnSpotClick) this.pickChip(this.chipValue);
+    this.refreshBetUi();
+  }
+
+  /** placeOnSpotClick mode: the chosen denomination lights up in the chip tray. */
+  protected pickChip(v: number) {
+    this.chipValue = v;
+    this.g.hud.markChip(v);
+  }
+
+  /** A click on a betting place (BetSpots calls it after selecting the place). */
+  protected onSpotClick(id: string) {
+    if (!this.placeOnSpotClick || this.phase !== 'betting' || this.busy) return;
+    const s = this.spots.get(id);
+    const err = this.spots.addChip(this.chipValue, this.g.stage.screenToTable(0.5, 0.97, 1.6));
+    if (err) this.g.hud.toast(err);
+    void s;
+    this.refreshBetUi();
+  }
+
+  /** placeOnSpotClick mode: right-click takes the last chip off a betting place. */
+  protected takeChip(id: string) {
+    if (!this.placeOnSpotClick || this.phase !== 'betting' || this.busy) return;
+    this.spots.get(id).pile.popChip();
+    this.g.sfx.play('handle', { vol: 0.4 });
     this.refreshBetUi();
   }
 
   protected refreshBetUi() {
     const { hud, wallet } = this.g;
     const total = this.spots.total;
+    hud.setStripBet(total);
     hud.setChipLimit(wallet.balance - total);
     hud.setBetButton('deal', !this.validate());
     hud.setBetButton('clear', total > 0);
@@ -214,7 +253,8 @@ export abstract class TableGame implements GameView {
     this.last = this.spots.amounts();
     for (const s of this.spots.spots.values()) if (s.def.auto) delete this.last[s.def.id];
     if (this.debitsOnDeal) wallet.debit(total);
-    if (this.shoe.needsShuffle) await this.reshuffle();
+    if (!this.usesCards) this.shoe.shuffle();
+    else if (this.shoe.needsShuffle) await this.reshuffle();
     else if (this.shoe.decks === 1) this.shoe.shuffle();
     await this.playRound();
     await this.finishRound();

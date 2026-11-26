@@ -60,6 +60,13 @@ export const SIGNATURES: Record<string, Signature> = {
   paigow: { kind: 'wins', n: 25 },
   war: { kind: 'wins', n: 25 },
   reddog: { kind: 'wins', n: 25 },
+  highlow: { kind: 'event', event: 'big' },
+  redblack: { kind: 'event', event: 'big' },
+  picknum: { kind: 'event', event: 'big' },
+  roulette: { kind: 'event', event: 'big' },
+  partybj: { kind: 'event', event: 'big' },
+  coinflip: { kind: 'event', event: 'big' },
+  horses: { kind: 'event', event: 'big' },
 };
 
 export const BRAZIL_GAMES = ['manilhadraw', 'manilhaholdem', 'pifeexpress', 'videopife', 'canastradraw'];

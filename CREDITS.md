@@ -22,6 +22,12 @@ inspirado na mecânica de "blackjack com trunfos" — não usa personagens, nome
 
 Decoração de mesa do PC modelada no código (sem assets externos): copos de cristal com bebidas, torres de fichas, placas de alto valor, botão de dealer, dados e plaquetas de mesa (`src/table/decorKit.ts`).
 
+Marcas de baralho do PC (Veloce, VL Poker Series, Stallion, Royal Salon, Canarinho): desenhos originais feitos no código (`src/table/deckBrands.ts`), inspirados no estilo de baralhos clássicos de cassino; não usam nome, logo ou arte de nenhuma marca real.
+
+Mesas novas do PC modeladas no código (sem assets externos): roda e pano da roleta europeia, moeda de ouro do Coin Flip, pista de tabuleiro e cavalinhos de brinquedo do Lucky Horses (`src/games/roulette`, `coinflip`, `horses`). High & Low, Red or Black e Pick a Number são jogos de cartas simples e genéricos; as regras e os pagamentos desta versão (contra a banca) são nossos.
+
+Teclas da faixa estilo máquina de cassino: feitas em CSS, sem imagens externas. Efeitos sonoros extras (moedas, sino, jackpot, roleta, moeda girando, fanfarra, galope, clique das teclas) sintetizados com WebAudio (`src/audio/sfx.ts`).
+
 Criados para o jogo (sem assets externos): coringas e cartas numeradas do Trump 21, índices, naipes, ases e layout das cartas numeradas,
 verso das cartas (padrão "lago" + medalhão VL), fichas, impressões da mesa, ícones da HUD e
 os jingles sintetizados (vitória, empate, derrota, nível).

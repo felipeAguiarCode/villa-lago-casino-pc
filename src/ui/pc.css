@@ -17,6 +17,9 @@
   --col-l: calc(50% - var(--col) / 2);
   --panel-top: calc(18.5 * var(--u));
   --strip-h: calc(23 * var(--u-panel));
+  /* room taken by the strip's side groups (keys and displays) */
+  --strip-l: calc(116 * var(--u-panel));
+  --strip-r: calc(31 * var(--u-panel));
 }
 
 /* ---------------------------------------------------------------- top bar */
@@ -91,7 +94,10 @@
   justify-content: center;
 }
 
-/* ---------------------------------------------------------------- the control strip */
+/* ---------------------------------------------------------------- the control strip
+   A casino machine's button deck: brushed steel with a gold trim, keys in gold bezels on the left
+   (Lobby, Rules) and right (Hint), the balance and bet displays, and each table's chips and keys in
+   the middle. */
 .strip {
   position: absolute;
   left: 0;
@@ -100,23 +106,27 @@
   height: var(--strip-h);
   z-index: 4;
   background:
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.022) 0 2px, transparent 2px 5px),
-    linear-gradient(180deg, #59606c 0%, #343842 7%, #22252c 45%, #121418 100%);
-  border-top: calc(0.55 * var(--u)) solid #c9a35a;
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, #b4bac4 0%, #79808b 5%, #4b515b 26%, #30343b 64%, #1c1f24 100%);
+  border-top: calc(0.6 * var(--u)) solid #e0b44a;
   box-shadow:
-    0 calc(-1 * var(--u)) calc(3 * var(--u)) rgba(0, 0, 0, 0.55),
-    inset 0 calc(0.5 * var(--u)) 0 rgba(255, 255, 255, 0.16);
+    0 calc(-1 * var(--u)) calc(3 * var(--u)) rgba(0, 0, 0, 0.6),
+    inset 0 calc(0.4 * var(--u)) 0 rgba(255, 255, 255, 0.35);
 }
 
-/* a thin gold rule under the border, like a machine's trim */
+/* a darker inset rail the keys sit in */
 .strip::before {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(0.9 * var(--u));
-  height: calc(0.2 * var(--u));
-  background: linear-gradient(90deg, transparent, rgba(230, 194, 122, 0.45) 20%, rgba(230, 194, 122, 0.45) 80%, transparent);
+  left: calc(1.2 * var(--u));
+  right: calc(1.2 * var(--u));
+  top: calc(1.6 * var(--u));
+  bottom: calc(1.4 * var(--u));
+  border-radius: calc(2.4 * var(--u));
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.18));
+  box-shadow:
+    inset 0 calc(0.6 * var(--u)) calc(1.4 * var(--u)) rgba(0, 0, 0, 0.7),
+    0 calc(0.3 * var(--u)) 0 rgba(255, 255, 255, 0.12);
 }
 
 .strip-side {
@@ -125,7 +135,7 @@
   bottom: 0;
   display: flex;
   align-items: center;
-  gap: calc(2.2 * var(--u));
+  gap: calc(2 * var(--u));
 }
 
 .strip-side.left {
@@ -141,11 +151,79 @@
   pointer-events: none;
 }
 
-/* the table's chips and buttons sit in the middle of the strip */
+/* the balance and bet displays */
+.strip-lcd {
+  position: relative;
+  height: calc(13 * var(--u));
+  display: flex;
+  align-items: center;
+  gap: calc(1.4 * var(--u));
+  padding: 0 calc(2.6 * var(--u));
+  border-radius: calc(2.2 * var(--u));
+  background: linear-gradient(180deg, #050505, #17120a);
+  border: calc(0.5 * var(--u)) solid #c9a35a;
+  box-shadow:
+    inset 0 0 calc(1.6 * var(--u)) rgba(0, 0, 0, 0.95),
+    0 calc(0.5 * var(--u)) calc(1 * var(--u)) rgba(0, 0, 0, 0.55);
+}
+
+.strip-lcd.hidden {
+  display: none;
+}
+
+.strip-lcd b {
+  font: 700 calc(7 * var(--u)) / 1 'Barlow Condensed', sans-serif;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: #ffd84a;
+  text-shadow:
+    0 0 calc(1.4 * var(--u)) rgba(255, 200, 40, 0.75),
+    0 0 calc(0.4 * var(--u)) rgba(255, 220, 80, 0.9);
+}
+
+.strip-lcd.bal b {
+  min-width: calc(24 * var(--u));
+}
+
+.strip-lcd small {
+  font: 700 calc(3.4 * var(--u)) / 1 'Barlow Condensed', sans-serif;
+  letter-spacing: 0.18em;
+  color: #e2c179;
+}
+
+.strip-lcd .lcd-chip svg {
+  display: block;
+  width: calc(6 * var(--u));
+  height: calc(6 * var(--u));
+  fill: #e6c27a;
+}
+
+.strip-lcd .lcd-plus {
+  width: calc(7.5 * var(--u));
+  height: calc(7.5 * var(--u));
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 40% 30%, #9be35d, #2f8a14 70%);
+  border: calc(0.35 * var(--u)) solid #e9ffd0;
+}
+
+.strip-lcd .lcd-plus svg {
+  width: calc(4 * var(--u));
+  height: calc(4 * var(--u));
+  fill: #fff;
+}
+
+/* the in-game balance lives on the strip */
+.topbar .bank {
+  display: none;
+}
+
+/* the table's chips and keys sit in the middle of the strip, between the side groups */
 .actions,
 .betbar {
-  left: 0;
-  right: 0;
+  left: var(--strip-l);
+  right: var(--strip-r);
   width: auto;
   bottom: 0;
   height: var(--strip-h);
@@ -155,7 +233,7 @@
 
 .betbar {
   flex-direction: row;
-  gap: calc(4 * var(--u));
+  gap: calc(3.2 * var(--u));
 }
 
 .betbar .betmeter,
@@ -166,7 +244,7 @@
 .actions,
 .actions.n4,
 .betbar .btnrow {
-  gap: calc(2.2 * var(--u));
+  gap: calc(2 * var(--u));
 }
 
 .actions.hidden,
@@ -175,60 +253,64 @@
 }
 
 /* ---------------------------------------------------------------- slot-machine keys
-   The button is the key's well; the face is the cap. The cap stands on a coloured skirt and sinks
-   into the well when pressed. */
+   The button is the key in its gold bezel; the face is the cap. The cap stands on a thick coloured
+   skirt and sinks into the bezel when pressed. */
 .actions .vbtn,
 .actions.n4 .vbtn,
 .betbar .vbtn,
 .betbar .btnrow:has(> :nth-child(4)) .vbtn,
 .strip .vbtn {
-  width: calc(22 * var(--u));
-  height: calc(18 * var(--u));
-  border-radius: calc(2.8 * var(--u));
-  background: linear-gradient(180deg, #08090b, #24272e);
+  width: calc(23 * var(--u));
+  height: calc(18.5 * var(--u));
+  border-radius: calc(3 * var(--u));
+  background: linear-gradient(180deg, #0a0b0d, #22252b);
+  border: calc(0.7 * var(--u)) solid #d39b2a;
+  border-top-color: #ffe7a0;
+  border-bottom-color: #8e6212;
   box-shadow:
-    inset 0 calc(0.6 * var(--u)) calc(1 * var(--u)) rgba(0, 0, 0, 0.85),
-    0 calc(0.3 * var(--u)) 0 rgba(255, 255, 255, 0.12);
+    inset 0 calc(1 * var(--u)) calc(1.6 * var(--u)) rgba(0, 0, 0, 0.9),
+    0 calc(0.6 * var(--u)) calc(1.2 * var(--u)) rgba(0, 0, 0, 0.6);
   --c3: #1c3d0e;
 }
 
 .actions .vbtn .face,
 .betbar .vbtn .face,
 .strip .vbtn .face {
-  inset: calc(0.8 * var(--u)) calc(0.8 * var(--u)) calc(2.3 * var(--u));
-  border-radius: calc(2 * var(--u));
+  inset: calc(0.7 * var(--u)) calc(0.8 * var(--u)) calc(2.6 * var(--u));
+  border-radius: calc(2.2 * var(--u));
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding-top: calc(1.5 * var(--u));
+  padding-top: calc(1.3 * var(--u));
   box-shadow:
-    0 calc(1.5 * var(--u)) 0 var(--c3),
-    0 calc(2 * var(--u)) calc(1.2 * var(--u)) rgba(0, 0, 0, 0.6),
-    inset 0 calc(0.55 * var(--u)) calc(0.5 * var(--u)) rgba(255, 255, 255, 0.5),
-    inset 0 calc(-1 * var(--u)) calc(1.4 * var(--u)) rgba(0, 0, 0, 0.32);
+    0 calc(2 * var(--u)) 0 var(--c3),
+    0 calc(2.4 * var(--u)) calc(1 * var(--u)) rgba(0, 0, 0, 0.55),
+    inset 0 calc(0.6 * var(--u)) calc(0.6 * var(--u)) rgba(255, 255, 255, 0.55),
+    inset 0 calc(-1.2 * var(--u)) calc(1.4 * var(--u)) rgba(0, 0, 0, 0.3);
   transition:
-    transform 0.06s,
-    box-shadow 0.06s;
+    transform 0.05s,
+    box-shadow 0.05s,
+    filter 0.1s;
 }
 
 .actions .vbtn .face::before,
 .betbar .vbtn .face::before,
 .strip .vbtn .face::before {
-  height: 38%;
+  height: 40%;
 }
 
 .actions .vbtn svg,
 .betbar .vbtn svg,
 .strip .vbtn svg {
-  width: calc(7.4 * var(--u));
-  height: calc(7.4 * var(--u));
+  width: calc(7.6 * var(--u));
+  height: calc(7.6 * var(--u));
 }
 
 .actions .vbtn .txt,
 .betbar .vbtn .txt,
 .strip .vbtn .txt {
-  font-size: calc(5.2 * var(--u));
+  font-size: calc(5.4 * var(--u));
 }
 
 .actions .vbtn .lbl,
@@ -239,40 +321,38 @@
   top: auto;
   left: calc(0.8 * var(--u));
   right: calc(0.8 * var(--u));
-  bottom: calc(3.4 * var(--u));
+  bottom: calc(3.6 * var(--u));
   margin: 0;
-  font-size: calc(4.4 * var(--u));
+  font-size: calc(4.5 * var(--u));
   line-height: 1;
   text-align: center;
   pointer-events: none;
-  transition: transform 0.06s;
+  transition: transform 0.05s;
 }
 
-/* pressing: the cap sinks onto its skirt (the whole key no longer moves) */
+/* pressing: the cap sinks onto its skirt, darker for a moment */
 .actions .vbtn:active:not([disabled]),
 .betbar .vbtn:active:not([disabled]),
 .strip .vbtn:active:not([disabled]) {
   transform: none;
-  box-shadow:
-    inset 0 calc(0.6 * var(--u)) calc(1 * var(--u)) rgba(0, 0, 0, 0.85),
-    0 calc(0.3 * var(--u)) 0 rgba(255, 255, 255, 0.12);
 }
 
 .actions .vbtn:active:not([disabled]) .face,
 .betbar .vbtn:active:not([disabled]) .face,
 .strip .vbtn:active:not([disabled]) .face {
-  transform: translateY(calc(1.3 * var(--u)));
+  transform: translateY(calc(1.8 * var(--u)));
+  filter: brightness(0.9);
   box-shadow:
     0 calc(0.2 * var(--u)) 0 var(--c3),
-    0 calc(0.5 * var(--u)) calc(0.6 * var(--u)) rgba(0, 0, 0, 0.6),
-    inset 0 calc(0.55 * var(--u)) calc(0.5 * var(--u)) rgba(255, 255, 255, 0.35),
-    inset 0 calc(-1 * var(--u)) calc(1.4 * var(--u)) rgba(0, 0, 0, 0.4);
+    0 calc(0.4 * var(--u)) calc(0.5 * var(--u)) rgba(0, 0, 0, 0.6),
+    inset 0 calc(0.6 * var(--u)) calc(0.6 * var(--u)) rgba(255, 255, 255, 0.35),
+    inset 0 calc(-1.2 * var(--u)) calc(1.4 * var(--u)) rgba(0, 0, 0, 0.4);
 }
 
 .actions .vbtn:active:not([disabled]) .lbl,
 .betbar .vbtn:active:not([disabled]) .lbl,
 .strip .vbtn:active:not([disabled]) .lbl {
-  transform: translateY(calc(1.3 * var(--u)));
+  transform: translateY(calc(1.8 * var(--u)));
 }
 
 .vbtn.red {
@@ -299,17 +379,37 @@
   --c3: #0b0c10;
 }
 
+.vbtn.orange {
+  --c1: #ffab55;
+  --c2: #c4560c;
+  --c3: #5e2604;
+}
+
+.vbtn.pink {
+  --c1: #ff74ad;
+  --c2: #c21d62;
+  --c3: #5c0a2c;
+}
+
 /* chips in the strip sit like coins in a tray */
 .betbar .chiprow {
   padding: calc(0.8 * var(--u)) calc(1.6 * var(--u));
   border-radius: calc(9 * var(--u));
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.25));
-  box-shadow: inset 0 calc(0.5 * var(--u)) calc(1 * var(--u)) rgba(0, 0, 0, 0.7);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.3));
+  box-shadow: inset 0 calc(0.5 * var(--u)) calc(1 * var(--u)) rgba(0, 0, 0, 0.75);
 }
 
 .betbar .chipbtn {
-  width: calc(14.5 * var(--u));
-  height: calc(14.5 * var(--u));
+  width: calc(14 * var(--u));
+  height: calc(14 * var(--u));
+}
+
+/* the chip chosen for placing (roulette) */
+.betbar .chipbtn.on {
+  transform: translateY(calc(-1 * var(--u)));
+  box-shadow:
+    0 0 0 calc(0.6 * var(--u)) #fff3c8,
+    0 0 calc(2.6 * var(--u)) rgba(255, 215, 106, 0.95);
 }
 
 .betbar .led {
@@ -450,13 +550,21 @@
   background: linear-gradient(180deg, rgba(20, 26, 40, 0.85), rgba(6, 9, 16, 0.9));
   border: calc(0.5 * var(--u)) solid #c9a35a;
   box-shadow: 0 0 calc(4 * var(--u)) rgba(255, 205, 110, 0.35);
-  animation: ti-blink 1.3s ease-in-out infinite;
+  animation: ti-blink 1.1s infinite;
 }
 
+/* a real blink: on, then nearly off */
 @keyframes ti-blink {
-  50% {
-    opacity: 0.45;
-    box-shadow: 0 0 0 rgba(255, 205, 110, 0);
+  0%,
+  55% {
+    opacity: 1;
+  }
+  62%,
+  93% {
+    opacity: 0.08;
+  }
+  100% {
+    opacity: 1;
   }
 }
 
@@ -721,9 +829,9 @@
 }
 
 .gs-grid {
-  --tile: min(calc(24 * var(--u)), 8.6vw);
+  --tile: min(calc(22.5 * var(--u)), 6.6vw);
   display: grid;
-  grid-template-columns: repeat(6, var(--tile));
+  grid-template-columns: repeat(8, var(--tile));
   grid-auto-rows: var(--tile);
   gap: calc(1.8 * var(--u));
 }
