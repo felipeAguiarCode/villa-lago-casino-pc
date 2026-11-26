@@ -244,6 +244,84 @@ export class Sfx {
     this.tone(1900 * pitch, t, 0.03, 'triangle', vol * 0.25);
   }
 
+  // ---------------------------------------------------------------- achievements
+  /**
+   * An achievement unlocking, in the spirit of a console's achievement pop: an airy swell, a warm
+   * round "bloop" gliding up, then two soft bells a fifth apart ringing into a short echo. A rare
+   * one (gold, platinum) adds a third bell and a sparkle. An original sound, synthesized.
+   */
+  achievement(rare = false) {
+    if (!this.ready()) return;
+    const ctx = this.ctx!;
+    const t = ctx.currentTime + 0.01;
+    const out = ctx.createGain();
+    out.gain.value = 1;
+    out.connect(this.master!);
+    // a short, soft echo
+    const send = ctx.createGain();
+    send.gain.value = 0.28;
+    const delay = ctx.createDelay(1);
+    delay.delayTime.value = 0.13;
+    const fb = ctx.createGain();
+    fb.gain.value = 0.3;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 3000;
+    send.connect(delay).connect(lp).connect(fb).connect(delay);
+    lp.connect(out);
+    const bus = ctx.createGain();
+    bus.connect(out);
+    bus.connect(send);
+
+    // the airy swell under it
+    this.noise(t, 0.42, 0.045, 'bandpass', 450, 0.8, 2800);
+
+    // the bloop: a round sine gliding up an octave, with a softer octave above
+    const bloop = (type: OscillatorType, f0: number, f1: number, vol: number) => {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.setValueAtTime(f0, t);
+      o.frequency.exponentialRampToValueAtTime(f1, t + 0.085);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(vol * 0.4, t + 0.12);
+      g.gain.exponentialRampToValueAtTime(0.0006, t + 0.55);
+      o.connect(g).connect(bus);
+      o.start(t);
+      o.stop(t + 0.6);
+    };
+    bloop('sine', 233, 466, 0.26);
+    bloop('triangle', 466, 932, 0.07);
+
+    // a bell: two slightly detuned sines (a gentle chorus) and a quiet upper partial
+    const bell = (f: number, at: number, dur: number, vol: number) => {
+      for (const [mul, v, d] of [
+        [1, 1, 1],
+        [1.004, 0.6, 1],
+        [2.76, 0.18, 0.3],
+      ] as const) {
+        const o = ctx.createOscillator();
+        o.type = 'sine';
+        o.frequency.value = f * mul;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, at);
+        g.gain.linearRampToValueAtTime(vol * v, at + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.0006, at + dur * d);
+        o.connect(g).connect(bus);
+        o.start(at);
+        o.stop(at + dur * d + 0.05);
+      }
+    };
+    bell(1318.51, t + 0.07, 0.9, 0.075); // E6
+    bell(1975.53, t + 0.17, 1.1, 0.06); // B6
+    if (rare) {
+      bell(2637.02, t + 0.29, 1.3, 0.05); // E7
+      for (let i = 0; i < 6; i++) bell(3500 + Math.random() * 1800, t + 0.36 + i * 0.06, 0.35, 0.016);
+    }
+    setTimeout(() => out.disconnect(), 2600);
+  }
+
   // ---------------------------------------------------------------- slot machine (Poker Slots)
   /**
    * The reel motor: a low hum and the rush of the strips going round, until the returned function

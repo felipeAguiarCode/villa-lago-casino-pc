@@ -8,7 +8,7 @@
 
 ---
 
-> **PC edition.** This is the widescreen, full-screen version for computers. The phone version (portrait) lives in [villa-lago-casino](https://github.com/felipeAguiarCode/villa-lago-casino).
+> **PC edition.** This is the widescreen, full-screen version for computers. The phone version (portrait) lives in [villa-lago-casino](https://github.com/felipeAguiarCode/villa-lago-casino) and plays at https://felipeaguiarcode.github.io/villa-lago-casino/.
 
 **▶ Play it in the browser: https://felipeaguiarcode.github.io/villa-lago-casino-pc/** (GitHub Pages, published by `.github/workflows/pages.yml` on every push to `main`; play chips only, no real money).
 
@@ -76,18 +76,18 @@ Every table opens with a cardistry show picked at random, never the same one twi
 
 ### Screens
 - **Splash, title, Game Select.** The *Made with CARD ENGINE* splash rings a 16-bit console style boot chime, synthesized with an original melody (`src/audio/bootChime.ts`): pulse-wave blips as the emblem's cards land, a bell run with the shine, and an "item got" chord through a console-style echo. A browser only starts sound after a key or a click, so when the sound is still locked the game opens like a console being switched on, with a power light and PRESS ANY KEY. After the engine splash and the play-chips notice comes a *Press Start* title: the game's name over the lobby table, a deck that keeps shuffling, a lit cigar resting on an ashtray beside a brass lighter, and a breeze that now and then lifts a few cards and blows them across the felt (`src/table/wind.ts`: drag, lift and tumbling, cards landing face up or down), cards scattered around it that flip to random faces, and a blinking **PRESS ENTER** (or click). Then comes **Game Select** (`src/ui/gameSelect.ts`):
-  - On the left, a preview of the highlighted table: a picture captured from the game itself, its name, a description, the hands played and its three trophies.
+  - On the left, a preview of the highlighted table: a picture captured from the game itself, its name, a description, the hands played and its three achievements.
   - On the right, a grid of table tiles, each with its own pictogram (`src/ui/gameIcons.ts`), and a *Surprise me* tile.
-  - The **bankroll**, shared by every table, is shown large with the level, next to the Trophies, full-screen and settings buttons.
+  - The **bankroll**, shared by every table, is shown large with the level, next to the Achievements, full-screen and settings buttons.
   - Mouse or keyboard: arrows choose a table and Enter plays it.
-- **Deck, Reset and Game Over.** The **Deck** screen picks the card backs: 25 classic patterns (diamond lattice, houndstooth, guilloché, arabesque…) in 20 colours, or each table's own colour. The backs are pattern only, with no emblem or picture (`src/table/backPatterns.ts`, `src/ui/deckMenu.ts`). **Reset** starts over with the starting bankroll after a confirmation. When the bankroll runs out between hands, the game returns to Game Select with **GAME OVER** and a new game starts with 5,000 chips (trophies are kept).
-- **Trophies** (`src/core/trophies.ts`, `src/ui/trophies.ts`). A PlayStation-style list of 165 trophies in bronze, silver, gold and one platinum.
+- **Deck, Reset and Game Over.** The **Deck** screen picks the card backs: 25 classic patterns (diamond lattice, houndstooth, guilloché, arabesque…) in 20 colours, or each table's own colour. The backs are pattern only, with no emblem or picture (`src/table/backPatterns.ts`, `src/ui/deckMenu.ts`). **Reset** starts over with the starting bankroll after a confirmation. When the bankroll runs out between hands, the game returns to Game Select with **GAME OVER** and a new game starts with 5,000 chips (achievements are kept).
+- **Achievements** (`src/core/trophies.ts`, `src/ui/trophies.ts`). A list of 165 achievements in bronze, silver, gold and one platinum, in the style of console achievements.
   - Career: hands played and levels.
   - Bankroll: balance milestones, big bets, a comeback won at the tables, the free refill.
   - Explorer: playing different tables.
   - Three per table: a first hand, a three-win streak, and a signature result such as a natural blackjack, a Clean Sweep in Manilha Draw or a Canastra.
-  - Each trophy has its badge, a progress bar or its date. The list filters by category and by table.
-  - A notice slides in when a trophy is earned.
+  - Each achievement has its badge, a progress bar or its date. The list filters by category and by table.
+  - An **Achievement unlocked** notice slides in with its own sound (`sfx.achievement`): an airy swell, a round "bloop" gliding up and two bells a fifth apart, in the spirit of a console achievement pop; gold and platinum add a third bell and a sparkle. Original, synthesized.
 
 ### Tables
 - **Full window, any widescreen.** The HUD scales with the screen height, from a 1366×768 laptop to a 1440p monitor or an ultrawide. A button switches to full screen.
@@ -127,7 +127,7 @@ Every table opens with a cardistry show picked at random, never the same one twi
 ```bash
 npm install
 npm run dev          # http://127.0.0.1:5174
-npm run test         # 565 rule / payout / RTP / trophy tests
+npm run test         # 565 rule / payout / RTP / achievement tests
 npm run sim:showdown # Showdown Poker balance report → docs/showdown-balance.md
 npm run sim:abyss    # Abyss Poker balance report → docs/abyss-balance.md
 npm run sim:brazil   # Brazilian games balance report → docs/brazil-balance.md
@@ -147,4 +147,4 @@ Kenney *Casino Audio* (CC0, including the dice sounds), *Felt Backgrounds* by jb
 
 ### Português
 
-Versão para PC (tela cheia, widescreen) do cassino de cartas 3D feito com three.js: 48 jogos contra o dealer ou a banca (incluindo Roleta, Craps com dados de física real, Coin Flip, Lucky Horses, Poker Dice, Poker Slots com rolos de cartas e travas, Hold'em Slots com sete rolos, Seven-Card Stud, Vanunu, Suit Poker e seis mesas Party com rivais de IA que mudam de mentalidade a cada mão), tela Press Start com baralho embaralhando e cartas piscando, menu de Baralho (25 padronagens × 20 cores), Zerar banca e Game Over, Game Select com preview de cada mesa e bankroll compartilhado em destaque, troféus no estilo PlayStation (165, com filtros por categoria e por mesa), mesa grande enquadrada por jogo, faixa de teclas de máquina de cassino embaixo, baralhos de marcas originais diferentes por mesa, efeitos sonoros de cassino e decoração diferente em cada mesa. A versão para celular está em [villa-lago-casino](https://github.com/felipeAguiarCode/villa-lago-casino). Somente fichas fictícias — sem dinheiro real. Jogue no navegador em https://felipeaguiarcode.github.io/villa-lago-casino-pc/ ou rode com `npm install` e `npm run dev`.
+Versão para PC (tela cheia, widescreen) do cassino de cartas 3D feito com three.js: 48 jogos contra o dealer ou a banca (incluindo Roleta, Craps com dados de física real, Coin Flip, Lucky Horses, Poker Dice, Poker Slots com rolos de cartas e travas, Hold'em Slots com sete rolos, Seven-Card Stud, Vanunu, Suit Poker e seis mesas Party com rivais de IA que mudam de mentalidade a cada mão), tela Press Start com baralho embaralhando e cartas piscando, menu de Baralho (25 padronagens × 20 cores), Zerar banca e Game Over, Game Select com preview de cada mesa e bankroll compartilhado em destaque, conquistas (achievements) com som de desbloqueio no estilo de console (165, com filtros por categoria e por mesa), mesa grande enquadrada por jogo, faixa de teclas de máquina de cassino embaixo, baralhos de marcas originais diferentes por mesa, efeitos sonoros de cassino e decoração diferente em cada mesa. A versão para celular está em [villa-lago-casino](https://github.com/felipeAguiarCode/villa-lago-casino). Somente fichas fictícias — sem dinheiro real. Jogue no navegador em https://felipeaguiarcode.github.io/villa-lago-casino-pc/ ou rode com `npm install` e `npm run dev`.

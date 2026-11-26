@@ -259,7 +259,7 @@ export class App {
       GAMES.map((g) => ({ id: g.id, title: g.title })),
       browserStore(),
     );
-    const toast = new TrophyToast(this.frame, (tier) => (tier === 'gold' || tier === 'platinum' ? this.sfx.levelUp() : this.sfx.win()));
+    const toast = new TrophyToast(this.frame, (tier) => this.sfx.achievement(tier === 'gold' || tier === 'platinum'));
     this.trophies.onEarn((list) => toast.show(list));
     this.trophies.balance(this.wallet.balance);
     this.wallet.onHand((w, n) => {

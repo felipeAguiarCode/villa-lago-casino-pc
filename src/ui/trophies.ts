@@ -20,7 +20,7 @@ export function trophyBadge(d: { tier: Tier; icon: string }, earned: boolean): s
 export const trophyName = (d: TrophyDef) => t(d.name, d.vars);
 export const trophyDesc = (d: TrophyDef) => t(d.desc, d.vars);
 
-/** "Trophy earned" notice, top-right, one at a time. */
+/** "Achievement unlocked" notice, top-right, one at a time, with its sound. */
 export class TrophyToast {
   private q: Promise<void> = Promise.resolve();
   constructor(
