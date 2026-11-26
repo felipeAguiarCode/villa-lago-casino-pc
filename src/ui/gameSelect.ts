@@ -27,7 +27,8 @@ export interface GameSelectDeps {
   tick: () => void;
 }
 
-const COLS = 8;
+/** Columns of the table grid (src/ui/pc.css .gs-grid): 48 tables and Surprise me fit in six rows. */
+const COLS = 9;
 const RANDOM = 'random';
 
 /**
