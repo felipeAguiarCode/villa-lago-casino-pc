@@ -634,6 +634,7 @@ export class BlackjackView implements GameView {
       sfx.push();
       banner = hud.banner(t('bj.insPaid'), net > 0 ? `+${money(net)}` : t('bj.insPaidSub'), 'small', 1500);
     } else if (anyBJ && net > 0) {
+      this.g.trophy('big');
       banner = hud.banner('BLACKJACK!', `+${money(net)}`, 'win', 1700);
     } else if (net > 0) {
       sfx.win(net >= wager * 1.5);

@@ -39,10 +39,15 @@ import { CardFactory, REST_Y, type Card3D } from './table/cardMesh';
 import { ChipPile, ChipSet } from './table/chips';
 import { Fx } from './table/fx';
 import { Stage } from './table/stage';
-import { Table } from './table/table';
+import { PRINT_SCALE, PRINT_SCALE_FOR, Table } from './table/table';
 import { Decor } from './table/decor';
 import { Hud } from './ui/hud';
-import { Lobby } from './ui/lobby';
+import { GameSelect } from './ui/gameSelect';
+import { TitleScreen } from './ui/title';
+import { TrophyScreen, TrophyToast } from './ui/trophies';
+import { Trophies } from './core/trophies';
+import { browserStore } from './core/storage';
+import { PC_FRAMING } from './games/pcFraming';
 import { creditsHtml, openSettings } from './ui/panels';
 import { t } from './core/i18n';
 
@@ -66,7 +71,11 @@ export class App {
   chips!: ChipSet;
   fx!: Fx;
   hud!: Hud;
-  lobby!: Lobby;
+  lobby!: GameSelect;
+  trophies!: Trophies;
+  decor!: Decor;
+  /** Lobby tile id of the table being played ('' in the lobby). */
+  currentId = '';
   ctx!: GameCtx;
   readonly games = new Map<string, GameView>();
   current: GameView | null = null;
@@ -99,9 +108,10 @@ export class App {
     this.stage = new Stage(this.frame);
     this.cards = new CardFactory(this.stage.table, this.stage.renderer, this.settings.back);
     this.table = new Table(this.stage, feltImg, () => this.cards.backTexture);
-    // PC: decorative 3D pieces beside the play area (loaded in the background)
-    void new Decor(this.stage).load(base + 'models/');
     this.chips = new ChipSet();
+    // PC: decorative 3D pieces beside the play area, a set per table (models load in the background)
+    this.decor = new Decor(this.stage, this.chips, () => this.cards.backTexture.image as HTMLCanvasElement);
+    void this.decor.load(base + 'models/');
     this.fx = new Fx(this.stage.table);
     this.sfx = new Sfx(base + 'sfx/');
     this.hud = new Hud(this.frame, this.chips, this.sfx);
@@ -123,7 +133,21 @@ export class App {
       sfx: this.sfx,
       wallet: this.wallet,
       settings: this.settings,
+      trophy: (e) => {
+        if (this.currentId) this.trophies.event(this.currentId, e);
+      },
     };
+    // PC: trophies (a finished hand comes from the wallet, special results from the tables)
+    this.trophies = new Trophies(
+      GAMES.map((g) => ({ id: g.id, title: g.title })),
+      browserStore(),
+    );
+    const toast = new TrophyToast(this.frame, (tier) => (tier === 'gold' || tier === 'platinum' ? this.sfx.levelUp() : this.sfx.win()));
+    this.trophies.onEarn((list) => toast.show(list));
+    this.trophies.balance(this.wallet.balance);
+    this.wallet.onHand((w, n) => {
+      if (this.currentId) this.trophies.hand(this.currentId, w, n, this.wallet.balance, this.wallet.s.level);
+    });
     this.games.set('blackjack', new BlackjackView(this.ctx));
     const tcp = new ThreeCardView(this.ctx);
     this.games.set('threecard', tcp);
@@ -155,23 +179,34 @@ export class App {
     this.games.set('canastradraw', new CanastraDrawView(this.ctx));
     this.games.set('trump21', new Trump21View(this.ctx));
 
-    this.lobby = new Lobby(
-      this.frame,
-      GAMES,
-      (id) => {
+    this.lobby = new GameSelect(this.frame, {
+      games: GAMES,
+      previewUrl: (id) => `${base}previews/${id}.jpg`,
+      trophies: this.trophies,
+      balance: () => this.wallet.balance,
+      level: () => this.wallet.s.level,
+      xpFrac: () => this.wallet.xpFrac,
+      onPlay: (id) => {
         this.sfx.click();
-        this.openGame(id);
+        void this.openGame(id);
       },
-      (g) => {
-        this.sfx.click();
-        this.hud.toast(t('lobby.soonToast', { game: g.title }));
+      onTrophies: (game) => this.openTrophies(game),
+      onSettings: () => this.openSettings(),
+      onRefill: () => this.refill(),
+      onFullscreen: () => {
+        if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+        else void document.documentElement.requestFullscreen?.().catch(() => {});
       },
-    );
+      click: () => this.sfx.click(),
+      tick: () => this.sfx.play('place', { vol: 0.25, rate: 1.4 }),
+    });
 
     this.wallet.onChange((w) => {
       this.hud.setBalance(w.balance);
       this.hud.setXP(w.s.level, w.xpFrac);
       this.current?.onWalletChange?.();
+      this.trophies.balance(w.balance);
+      if (!this.current) this.lobby.refresh();
     });
     this.hud.setBalance(this.wallet.balance, false);
     this.hud.setXP(this.wallet.s.level, this.wallet.xpFrac);
@@ -190,15 +225,27 @@ export class App {
     this.cards.warm([0, 12, 25, 38, 9, 10, 11].map((c) => c));
   }
 
-  /** Shows the lobby once the splash is gone. */
+  /** After the splash: the title screen over the lobby table, then Game Select. */
   async start() {
     setFavicon();
-    await this.showLobby(false);
+    this.frame.classList.add('in-title');
+    // the title shows at once, while the lobby's royal flush is dealt behind it
+    const lobby = this.showLobby(false, false);
+    await new TitleScreen(this.frame).run(() => {
+      this.sfx.click();
+      this.frame.classList.remove('in-title');
+      void lobby.then(() => this.lobby.show(true));
+    });
+  }
+
+  private openTrophies(game?: string) {
+    new TrophyScreen(this.frame, this.trophies, GAMES, () => this.sfx.click(), () => this.lobby.refresh()).open(game);
   }
 
   private refill() {
     const add = this.wallet.refill();
     if (add > 0) {
+      this.trophies.refill(this.wallet.balance);
       this.sfx.win();
       this.fx.burst(new THREE.Vector3(-0.8, 0.4, this.stage.screenToTable(0.25, 0.08).z), 80);
       this.hud.toast(t('toast.refill', { n: money(add) }));
@@ -269,15 +316,18 @@ export class App {
     await collectCards(list, this.table.trayTop(), this.table.trayYaw, (c) => this.cards.destroy(c));
   }
 
-  async showLobby(first = false) {
+  async showLobby(first = false, select = true) {
     if (this.switching) return;
     this.switching = true;
     if (this.current) {
       await this.current.exit();
       this.current = null;
     }
+    this.currentId = '';
+    this.stage.setFraming(null);
+    this.decor.setTheme('lobby');
     this.table.setFelt('lobby', !first);
-    this.lobby.show(true);
+    if (select) this.lobby.show(true);
     this.frame.classList.add('in-lobby');
     this.hud.setActions(null);
     this.hud.setBetBar(null);
@@ -298,6 +348,11 @@ export class App {
     this.lobby.show(false);
     this.frame.classList.remove('in-lobby');
     await this.clearShowcase();
+    // PC: each table is framed at its own size, and has its own decor
+    this.currentId = id;
+    this.stage.setFraming(PC_FRAMING[id] ?? null);
+    this.table.printScale = PRINT_SCALE_FOR[id] ?? PRINT_SCALE;
+    this.decor.setTheme(id);
     this.current = g;
     g.preset?.(id);
     await g.enter();

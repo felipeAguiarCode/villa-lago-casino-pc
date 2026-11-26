@@ -82,6 +82,7 @@ export class PifeExpressView extends BrazilTable<PifeExpressRound> {
     this.glow(pe.groups.flatMap((g) => g.cards.map((i) => p3[i])));
     this.glow(de.groups.flatMap((g) => g.cards.map((i) => d3[i])), '#9fd0ff');
     await wait(0.5);
+    if (pe.groups.length >= 2 && r.outcome === 'WIN') this.g.trophy('perfect');
     await this.settleChips(r, pe.groups.length >= 2 && r.outcome === 'WIN' ? t('br.cls.PERFECT_PIFE').toUpperCase() : undefined);
   }
 }
@@ -145,6 +146,7 @@ export class VideoPifeView extends BrazilTable<VideoPifeRound> {
     this.tag(t(`br.cls.${r.cls}`), r.outcome === 'WIN' ? 'win' : '', 0, P[0].pos.z - 0.56);
     this.glow(e.groups.flatMap((g) => g.cards.map((i) => p3[i])));
     await wait(0.5);
+    if (r.cls === 'DOUBLE_SET' || r.cls === 'PERFECT_PIFE') this.g.trophy('paid');
     await this.settleChips(r, r.cls === 'PERFECT_PIFE' ? t('br.cls.PERFECT_PIFE').toUpperCase() : undefined);
     this.paytable?.highlight(null);
   }

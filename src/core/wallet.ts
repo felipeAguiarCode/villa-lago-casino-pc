@@ -71,6 +71,14 @@ export class Wallet {
     this.save(n);
   }
 
+  private handCbs = new Set<(wagered: number, net: number) => void>();
+
+  /** PC: called after every finished hand (trophies). */
+  onHand(cb: (wagered: number, net: number) => void) {
+    this.handCbs.add(cb);
+    return () => this.handCbs.delete(cb);
+  }
+
   /** Records a finished hand; returns the new level when the player levelled up. */
   addHand(wagered: number, net: number): { levelUp: number | null; bonus: number } {
     this.s.hands++;
@@ -86,6 +94,7 @@ export class Wallet {
     }
     if (bonus) this.s.balance += bonus;
     this.save(bonus);
+    for (const cb of this.handCbs) cb(wagered, net);
     return { levelUp, bonus };
   }
 

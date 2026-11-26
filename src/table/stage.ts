@@ -226,6 +226,19 @@ export class Stage {
     return out;
   }
 
+  /**
+   * PC: frames the part of the portrait layout a table really uses (v0..v1 of the frame), so tables
+   * with room to spare are shown larger. Null restores the default band. Call before the table
+   * lays itself out (the sideways stretch depends on it).
+   */
+  setFraming(b: { v0: number; v1: number; u0?: number; u1?: number } | null) {
+    this.layoutBand.u0 = b?.u0 ?? 0.04;
+    this.layoutBand.u1 = b?.u1 ?? 0.96;
+    this.layoutBand.v0 = b?.v0 ?? 0.08;
+    this.layoutBand.v1 = b?.v1 ?? 0.85;
+    this.resize();
+  }
+
   /** Center of the play band on the table. */
   get playCenter(): THREE.Vector3 {
     return this.fitTarget;

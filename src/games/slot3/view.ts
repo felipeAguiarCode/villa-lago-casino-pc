@@ -261,6 +261,7 @@ export class Slot3View implements GameView {
       this.lastWin = won;
       fx.burst(stage.screenToTable(0.5, 0.42, 0.3), row <= 2 ? 180 : 80);
       sfx.win(row <= 2);
+      if (row <= 2) this.g.trophy('big');
       banner = hud.banner(t(ROW_NAME[key]).toUpperCase(), `+${money(won)}`, row <= 3 ? 'win' : 'win small', row <= 2 ? 1900 : 1300);
     } else {
       sfx.lose();

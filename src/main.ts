@@ -10,6 +10,7 @@ import '@fontsource/barlow-condensed/latin-700-italic.css';
 import '@fontsource/barlow-condensed/latin-800-italic.css';
 import './ui/hud.css';
 import './ui/pc.css';
+import './ui/pcStrings';
 import { setLang, t } from './core/i18n';
 import { loadSettings } from './core/settings';
 import { App } from './app';
@@ -38,4 +39,7 @@ boot.catch((err) => {
 
 splash.run(boot, skipEngine, () => void app.start());
 
-if (import.meta.env.DEV) (window as unknown as { __vlc: App }).__vlc = app;
+if (import.meta.env.DEV) {
+  (window as unknown as { __vlc: App }).__vlc = app;
+  void import('./dev/previews').then((m) => m.installPreviewTools(app));
+}

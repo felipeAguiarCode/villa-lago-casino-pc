@@ -199,6 +199,13 @@ export class ChipPile {
     this.meshes.forEach((m, i) => m.position.copy(this.slot(i)));
   }
 
+  /** A neat tower of n chips of value v (table decor). */
+  tower(v: number, n: number) {
+    this.clear();
+    for (let i = 0; i < n; i++) this.push(v);
+    this.layout();
+  }
+
   /** Replaces the pile with the canonical breakdown of `amount`. */
   set(amount: number) {
     this.clear();

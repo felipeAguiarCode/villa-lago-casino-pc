@@ -171,12 +171,27 @@ export class Hud {
     this.actionsEl = h('div', 'actions hidden');
     this.betbarEl = h('div', 'betbar hidden');
 
-    this.hintBtn = h('button', 'round-btn hintbtn hidden live', ICONS.bulb);
-    this.hintBtn.setAttribute('aria-label', t('aria.hint'));
-    this.hintBtn.onclick = () => {
-      this.sfx.click();
-      this.onHint();
-    };
+    // PC: a control strip along the bottom, slot-machine style: Lobby and Rules keys on the left,
+    // the Hint key on the right; each table's chips and buttons sit in its middle
+    const strip = h('div', 'strip');
+    const key = (id: string, label: string, color: BtnColor, icon: IconName, fn: () => void) =>
+      makeButton({
+        id,
+        label,
+        color,
+        icon,
+        onClick: () => {
+          this.sfx.click();
+          fn();
+        },
+      });
+    const left = h('div', 'strip-side left');
+    left.append(key('lobby', t('key.lobby'), 'dark', 'home', () => this.onMenu('lobby')), key('rules', t('key.rules'), 'blue', 'info', () => this.onMenu('rules')));
+    const right = h('div', 'strip-side right');
+    this.hintBtn = key('hint', t('key.hint'), 'gold', 'bulb', () => this.onHint());
+    this.hintBtn.classList.add('hidden');
+    right.append(this.hintBtn);
+    strip.append(left, right);
 
     const tab = h('button', 'sidetab live', ICONS.chevron);
     tab.setAttribute('aria-label', t('aria.menu'));
@@ -204,7 +219,7 @@ export class Hud {
     };
     this.scrim.onclick = () => this.closeDrawer();
 
-    root.append(this.labels, this.bubbles, top, this.bannerEl, this.toastEl, this.actionsEl, this.betbarEl, this.hintBtn, tab, this.scrim, this.drawer);
+    root.append(this.labels, this.bubbles, top, strip, this.bannerEl, this.toastEl, this.actionsEl, this.betbarEl, tab, this.scrim, this.drawer);
 
     // PC: Esc closes the open panel, then the menu
     window.addEventListener('keydown', (e) => {

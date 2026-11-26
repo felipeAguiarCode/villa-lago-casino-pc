@@ -39,6 +39,8 @@ export type FeltKey = keyof typeof FELTS;
 
 /** PC: the printed texts of every table are drawn larger than on the phone. */
 export const PRINT_SCALE = 1.3;
+/** Tables whose prints sit close to their betting circles keep them a little smaller. */
+export const PRINT_SCALE_FOR: Record<string, number> = { videopoker: 1.08, slot3: 1.1, videobj: 1.15 };
 /** PC: betting rings are larger too (the chips keep their size). */
 export const RING_SCALE = 1.15;
 
@@ -114,8 +116,11 @@ export class Table {
    * Adds a printed decal whose center sits at frame position (u, v) and spans `width` table units
    * (times PRINT_SCALE: the PC edition prints its table texts larger).
    */
+  /** Print scale of the table being set up (see PRINT_SCALE_FOR). */
+  printScale = PRINT_SCALE;
+
   addDecal(cv: HTMLCanvasElement, u: number, v: number, width: number): THREE.Mesh {
-    const m = this.makeDecal(cv, width * PRINT_SCALE);
+    const m = this.makeDecal(cv, width * this.printScale);
     const p = this.stage.screenToTable(u, v);
     m.position.set(p.x, 0.0015, p.z);
     return m;

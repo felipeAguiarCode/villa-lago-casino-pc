@@ -150,6 +150,7 @@ export class ManilhaDrawView extends BrazilTable<ManilhaDrawRound> {
       if (out.result === 'PLAYER_WIN') this.glow([this.p3[idx]]);
       await wait(0.35);
     }
+    if (r.data.duels.length === 3 && r.data.duels.every((d) => d.result === 'PLAYER_WIN')) this.g.trophy('sweep');
     await this.settleChips(r);
   }
 }

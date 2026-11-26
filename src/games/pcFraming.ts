@@ -1,0 +1,39 @@
+/**
+ * PC edition: the part of the portrait layout each table really uses, so tables with room to spare
+ * are shown larger (cards, chips and betting circles together). v0..v1 run down the phone frame
+ * (0 = top), u0..u1 across it. Measured with the cards dealt (src/dev/previews.ts → measureTable),
+ * plus room for the tags above the dealer's cards and the amounts under the bets. Tables not listed
+ * use the default band (u 0.04..0.96, v 0.08..0.85): their layout already fills the height.
+ */
+export interface Framing {
+  v0: number;
+  v1: number;
+  u0?: number;
+  u1?: number;
+}
+
+export const PC_FRAMING: Record<string, Framing> = {
+  blackjack: { v0: 0.11, v1: 0.84 },
+  videobj: { v0: 0.09, v1: 0.77 },
+  trump21: { v0: 0.12, v1: 0.78 },
+  threecard: { v0: 0.13, v1: 0.83 },
+  tcpfaceup: { v0: 0.13, v1: 0.83 },
+  videopife: { v0: 0.3, v1: 0.85, u0: -0.12, u1: 1.12 },
+  dragontiger: { v0: 0.12, v1: 0.78 },
+  showdown: { v0: 0.03, v1: 0.83 },
+  fourcard: { v0: 0.13, v1: 0.83 },
+  crazy4: { v0: 0.13, v1: 0.83 },
+  holdem3: { v0: 0.12, v1: 0.84 },
+  videopoker: { v0: 0.3, v1: 0.78, u0: -0.04, u1: 1.04 },
+  doubledraw: { v0: 0.12, v1: 0.82 },
+  hcf: { v0: 0.13, v1: 0.83 },
+  baccarat: { v0: 0.15, v1: 0.83 },
+  caribbean: { v0: 0.13, v1: 0.83 },
+  russian: { v0: 0.13, v1: 0.83 },
+  thb: { v0: 0.12, v1: 0.82 },
+  uth: { v0: 0.12, v1: 0.83 },
+  letitride: { v0: 0.15, v1: 0.8 },
+  paigow: { v0: 0.1, v1: 0.845 },
+  war: { v0: 0.16, v1: 0.83 },
+  reddog: { v0: 0.19, v1: 0.82 },
+};

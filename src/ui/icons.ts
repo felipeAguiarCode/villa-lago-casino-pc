@@ -16,6 +16,7 @@ function gearPath(): string {
 export const ICONS = {
   plus: svg('<path d="M9.6 3h4.8v6.6H21v4.8h-6.6V21H9.6v-6.6H3V9.6h6.6z"/>'),
   gear: svg(`<path fill-rule="evenodd" d="${gearPath()}"/>`),
+  trophy: svg('<path d="M6 3h12v2h3v3a5 5 0 0 1-4.6 5A5.5 5.5 0 0 1 13 15.8V18h3v3H8v-3h3v-2.2A5.5 5.5 0 0 1 7.6 13 5 5 0 0 1 3 8V5h3zm0 4H5v1a3 3 0 0 0 1.2 2.4A7 7 0 0 1 6 9zm12 0v2a7 7 0 0 1-.2 1.4A3 3 0 0 0 19 8V7z"/>'),
   menu: svg('<rect x="3" y="5" width="18" height="2.6" rx="1.3"/><rect x="3" y="10.7" width="18" height="2.6" rx="1.3"/><rect x="3" y="16.4" width="18" height="2.6" rx="1.3"/>'),
   expand: svg('<path d="M3 3h7v2.6H5.6V10H3zM21 3v7h-2.6V5.6H14V3zM3 21v-7h2.6v4.4H10V21zM21 21h-7v-2.6h4.4V14H21z"/>'),
   shrink: svg('<path d="M7.4 3H10v7H3V7.4h4.4zM14 3h2.6v4.4H21V10h-7zM3 14h7v7H7.4v-4.4H3zM14 14h7v2.6h-4.4V21H14z"/>'),

@@ -28,7 +28,8 @@ export function pcLayout(w: number, h: number): PcLayout {
   const u = Math.max(3.2, Math.min(h * 0.005, w * 0.0031));
   const side = Math.min(115 * u, w * 0.3);
   const panelU = Math.min(u * 1.2, side / 96);
-  const dock = 18 * panelU;
+  // the control strip along the bottom (see .strip in pc.css)
+  const dock = 23 * panelU;
   const top = 4 * u;
   const gap = 3 * u;
   const play = { x: side + gap, y: top, w: Math.max(1, w - 2 * (side + gap)), h: Math.max(1, h - top - dock) };

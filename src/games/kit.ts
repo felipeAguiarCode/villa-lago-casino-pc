@@ -327,6 +327,7 @@ export function highlightCards(g: GameCtx, cards: Card3D[], color = '#ffd27a') {
 export async function resultBanner(g: GameCtx, net: number, wager: number, opts: { big?: string; folded?: boolean } = {}) {
   const { hud, sfx } = g;
   if (opts.big && net > 0) {
+    g.trophy('big');
     sfx.win(true);
     return hud.banner(opts.big, `+${money(net)}`, 'win', 1700);
   }

@@ -94,6 +94,8 @@ export class ManilhaHoldemView extends BrazilTable<ManilhaHoldemRound> {
     this.tag(show(db.cards), 'dealer', 0, D[0].pos.z + 0.55);
     const win = r.outcome === 'WIN' ? [...p3, ...b3].filter((c) => pb.cards.includes(c.card!)) : r.outcome === 'LOSS' ? [...d3, ...b3].filter((c) => db.cards.includes(c.card!)) : [];
     this.glow(win, r.outcome === 'WIN' ? '#ffd27a' : '#9fd0ff');
+    // the Zap (♣ manilha) is the strongest card: strength 14
+    if (r.outcome === 'WIN' && pb.cards.some((c) => strength(c, m) === 14)) this.g.trophy('zap');
     await wait(0.5);
     await this.settleChips(r);
   }

@@ -18,6 +18,8 @@ export interface GameCtx {
   sfx: Sfx;
   wallet: Wallet;
   settings: Settings;
+  /** PC: reports a special result to the trophies ('big', 'sweep', 'zap', 'perfect', 'paid'). */
+  trophy: (event: string) => void;
 }
 
 export interface GameView {

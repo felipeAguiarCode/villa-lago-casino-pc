@@ -51,23 +51,54 @@ The game is set at the Villa Lago casino, whose symbol is **VL on a golden chip*
 
 Every table opens with a cardistry show picked at random, never the same one twice in a row: ribbon spread with a wave turnover, pressure fan, triple cut with a twirl, card spring, waterfall, faro weave, overhand, circle spread, chemmy wash, riffle and bridge (seven opening routines, five shorter reshuffles). Cards are dealt from a sealed Villa Lago deck box with gold-foil print, and the tables use icon buttons. Motion is physically modelled: cards fly low, land and slide on the felt with friction, and turn over by rolling on one edge; chips fly on ballistic arcs, bounce and wobble flat like coins; stacks lean with inertia when pushed. Levels follow an RPG curve (`src/core/progression.ts`): the first levels come in a few hands and every level asks for more XP than the last, while bigger bets add XP with diminishing returns; each level-up pays a chip bonus. Text is in English by default with Portuguese available in the settings.
 
-## PC layout
+## PC edition
 
-- **Full window, any widescreen.** The game fills the browser window, and a button in the top bar switches to full screen. The HUD scales with the screen height, from a 1366×768 laptop to a 1440p monitor or an ultrawide.
-- **A big table.** The tables keep the phone version's layouts. A virtual portrait camera places every card, chip and print as before. A seated widescreen camera, tilted 34°, frames the play area from the top edge of the screen down to the button dock (`src/table/stage.ts`). The layout is also stretched sideways to use the width: bet circles, boxes and columns spread out, while cards and chips keep their size. Table texts are printed 30% larger and betting circles 15% larger. The felt and the padded rail run to the screen edges.
-- **Top bar in the corners.** The menu button, balance and level sit on the left; full screen and settings on the right. The menu opens from that top-left button.
-- **Buttons centered at the bottom.** Chips and every bet and action button sit in one dock centered at the bottom. The buttons are wide pills with the icon and the label inside. The hint lamp sits in the bottom-right corner.
+### Screens
+- **Splash, title, Game Select.** After the engine splash and the play-chips notice, a title screen shows the VL emblem and the game's name over the lobby table and waits for **Enter** (or a click). Then comes **Game Select** (`src/ui/gameSelect.ts`):
+  - On the left, a preview of the highlighted table: a picture captured from the game itself, its name, a description, the hands played and its three trophies.
+  - On the right, a grid of table tiles, each with its own pictogram (`src/ui/gameIcons.ts`), and a *Surprise me* tile.
+  - The **bankroll**, shared by every table, is shown large with the level, next to the Trophies, full-screen and settings buttons.
+  - Mouse or keyboard: arrows choose a table and Enter plays it.
+- **Trophies** (`src/core/trophies.ts`, `src/ui/trophies.ts`). A PlayStation-style list of 108 trophies in bronze, silver, gold and one platinum.
+  - Career: hands played and levels.
+  - Bankroll: balance milestones, big bets, a comeback won at the tables, the free refill.
+  - Explorer: playing different tables.
+  - Three per table: a first hand, a three-win streak, and a signature result such as a natural blackjack, a Clean Sweep in Manilha Draw or a Canastra.
+  - Each trophy has its badge, a progress bar or its date. The list filters by category and by table.
+  - A notice slides in when a trophy is earned.
+
+### Tables
+- **Full window, any widescreen.** The HUD scales with the screen height, from a 1366×768 laptop to a 1440p monitor or an ultrawide. A button switches to full screen.
+- **A big table.** The tables keep the phone version's layouts. A virtual portrait camera places every card, chip and print as before. A seated widescreen camera, tilted 34°, frames the play area (`src/table/stage.ts`).
+  - Each table is framed at its own size (`src/games/pcFraming.ts`, measured with the cards dealt), so tables with room to spare, such as Video Poker, Video Pife, War or Red Dog, get larger cards and betting circles.
+  - The layout is stretched sideways to use the width.
+  - Table texts are printed 30% larger, and betting circles 15% larger.
+- **Slot-machine control strip.** A gunmetal strip with gold trim runs along the bottom.
+  - Lobby and Rules keys sit on the left and the Hint key on the right.
+  - Each table's chips sit in a tray in the middle, next to its buttons.
+  - The buttons are keys whose cap sinks onto its coloured skirt when pressed.
+- **Top bar in the corners.** The menu button, balance and level sit on the left; full screen and settings on the right. The menu opens from the top-left button.
 - **Side zones.** Paytables, the Three Card mode selector and the baccarat bead road sit on the left. Trump 21's trump cards sit on the right.
-- **3D table decor.** Three CC0 models from Poly Haven stand on the felt beside the play area (`src/table/decor.ts`): an oil lamp whose flame lights the felt, a pocket watch and three brass goblets.
-- **Lobby.** The tables are shown in a three-column grid.
-- **Mouse and keyboard.** Buttons, chips and tables light up on hover, and **Esc** closes the open panel or the menu. Nine-card hands (Video Pife, Canastra Draw) are spread wider.
+- **Casino decor per table** (`src/table/decor.ts`, `decorKit.ts`). Each table has its own set of elegant pieces beside the play area, plus a placard with the table's name:
+  - Whisky on the rocks and the dealer button at the poker tables.
+  - Champagne, high-value plaques and a pocket watch at baccarat.
+  - Martinis by the machines.
+  - Caipirinha with sealed decks at the Brazilian tables.
+  - Brass goblets and the pocket watch at the gothic Trump 21.
+  - The glasses, chips, plaques, dice and placards are modelled in code. The goblets and the watch are CC0 models from Poly Haven.
+- **Mouse and keyboard.** Buttons, chips and tiles light up on hover. **Esc** closes the open panel or the menu.
+
+### Dev tools
+`npm run dev` loads `src/dev/previews.ts`, which adds two calls on `__vlc`:
+- `__vlc.runQueue('measure', ids)` measures each table's layout.
+- `__vlc.runQueue('capture', ids)` saves each table's Game Select picture to `public/assets/previews/` through a dev-only endpoint (`vite.config.ts`).
 
 ## Run
 
 ```bash
 npm install
 npm run dev          # http://127.0.0.1:5174
-npm run test         # 230 rule / payout / RTP tests
+npm run test         # 239 rule / payout / RTP / trophy tests
 npm run sim:showdown # Showdown Poker balance report → docs/showdown-balance.md
 npm run sim:abyss    # Abyss Poker balance report → docs/abyss-balance.md
 npm run sim:brazil   # Brazilian games balance report → docs/brazil-balance.md
@@ -81,10 +112,10 @@ Vite · TypeScript · three.js · GSAP · Vitest. Game rules are pure TypeScript
 ## Credits
 
 All third-party assets are CC0 or open licensed — see [CREDITS.md](CREDITS.md):
-Kenney *Casino Audio* (CC0), *Felt Backgrounds* by jbp4444 (CC0), English pattern court cards by Dmitry Fomin (CC0), Poly Haven models *Brass Goblets* (Tina), *Vintage Pocket Watch* (Tal Swicegood) and *Vintage Oil Lamp* (Monsta3D) (CC0), Cinzel and Barlow Condensed (SIL OFL), three.js (MIT), GSAP.
+Kenney *Casino Audio* (CC0), *Felt Backgrounds* by jbp4444 (CC0), English pattern court cards by Dmitry Fomin (CC0), Poly Haven models *Brass Goblets* (Tina) and *Vintage Pocket Watch* (Tal Swicegood) (CC0), Cinzel and Barlow Condensed (SIL OFL), three.js (MIT), GSAP.
 
 ---
 
 ### Português
 
-Versão para PC (tela cheia, widescreen) do cassino de cartas 3D feito com three.js: 28 jogos contra o dealer, a mesa grande ao centro, as tabelas de pagamento à esquerda, as fichas e os botões centralizados embaixo, o menu no canto superior esquerdo e uma decoração 3D (lamparina, relógio de bolso e taças de latão, modelos CC0 do Poly Haven). A versão para celular está em [villa-lago-casino](https://github.com/felipeAguiarCode/villa-lago-casino). Somente fichas fictícias — sem dinheiro real. Rode com `npm install` e `npm run dev`.
+Versão para PC (tela cheia, widescreen) do cassino de cartas 3D feito com three.js: 28 jogos contra o dealer, tela de título (Press Enter), Game Select com preview de cada mesa e bankroll compartilhado em destaque, troféus no estilo PlayStation (108, com filtros por categoria e por mesa), mesa grande enquadrada por jogo, faixa de botões estilo caça-níquel embaixo e decoração de cassino diferente em cada mesa. A versão para celular está em [villa-lago-casino](https://github.com/felipeAguiarCode/villa-lago-casino). Somente fichas fictícias — sem dinheiro real. Rode com `npm install` e `npm run dev`.
