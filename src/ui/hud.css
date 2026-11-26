@@ -2132,7 +2132,6 @@ input[type='range'] {
 
 .trumprow .trump.peeking {
   transform: translateY(calc(-2.4 * var(--u))) scale(1.06);
-  filter: none;
   box-shadow:
     0 calc(1.4 * var(--u)) calc(2.4 * var(--u)) rgba(0, 0, 0, 0.6),
     0 0 calc(2.6 * var(--u)) rgba(255, 225, 140, 0.75);

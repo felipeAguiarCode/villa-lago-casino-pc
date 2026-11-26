@@ -5,8 +5,10 @@ import type { Rarity } from './rules';
 
 /**
  * Trump cards in the hand, shared by Trump 21 and Party Trump 21:
- * - a tap plays a trump; pressing and holding it shows what it does instead (an enlarged card
- *   with its name, rarity and effect), and letting go puts it back without playing it;
+ * - with a mouse, pointing at a trump shows what it does (an enlarged card with its name, rarity,
+ *   effect and whether it can be played now) and a click plays it;
+ * - on a touch screen a tap plays it, and pressing and holding shows what it does instead
+ *   (letting go puts it back without playing it);
  * - a bonus trump that turns up with a hit flies out of the shoe, turns over above the table with
  *   its own sound, and drops into the hand (the dealer's and the regulars' stay face down).
  */
@@ -16,15 +18,17 @@ addStrings(
     'tu.bonus': 'BONUS TRUMP!',
     'tu.bonusSub': 'Hit again: your card is still yours',
     'tu.canPlay': 'Let go, then tap to play it',
+    'tu.clickPlay': 'Click to play it',
     'tu.notNow': "Can't be played right now",
-    'tu.hold': 'Hold a trump card to see what it does',
+    'tu.hold': 'Point at a trump card (or hold it) to see what it does',
   },
   {
     'tu.bonus': 'TRUNFO BÔNUS!',
     'tu.bonusSub': 'Peça de novo: sua carta continua garantida',
     'tu.canPlay': 'Solte e toque para usar',
+    'tu.clickPlay': 'Clique para usar',
     'tu.notNow': 'Não pode ser usado agora',
-    'tu.hold': 'Segure um trunfo para ver o que ele faz',
+    'tu.hold': 'Passe o mouse sobre um trunfo (ou segure-o) para ver o que ele faz',
   },
 );
 
@@ -41,22 +45,35 @@ export interface TrumpCardInfo {
 /** The inside of a trump card, as in the hand. */
 export const trumpInner = (i: Pick<TrumpCardInfo, 'face' | 'name'>) => `<span class="tr-ic">${i.face}</span><span class="tr-name">${i.name}</span>`;
 
-/** How long a press must last to read the card instead of playing it. */
+/** How long a press must last to read the card instead of playing it (touch). */
 const HOLD_MS = 360;
+/** A short pause before a pointed card opens, so sweeping across the hand doesn't flicker. */
+const HOVER_MS = 90;
+/** …and a short grace before it closes, so crossing the gap between two cards doesn't either. */
+const LEAVE_MS = 140;
 
 let peek: HTMLElement | null = null;
+let peekAnchor: HTMLElement | null = null;
 
 /** Hides the enlarged card (if one is shown). */
 export function hideTrumpPeek() {
   if (!peek) return;
   const el = peek;
   peek = null;
+  peekAnchor?.classList.remove('peeking');
+  peekAnchor = null;
   gsap.to(el, { opacity: 0, y: 8, duration: 0.12, ease: 'power1.in', onComplete: () => el.remove() });
 }
 
-/** Shows the enlarged card and what it does, above `anchor` (inside `host`). */
-export function showTrumpPeek(host: HTMLElement, anchor: HTMLElement, info: TrumpCardInfo, note = '') {
+/**
+ * Shows the enlarged card and what it does, above `anchor` (inside `host`). `untilRelease`: a held
+ * card, closed by letting go anywhere; a pointed one closes when the mouse leaves it. Either closes
+ * when its card leaves the hand (played, or the hand redrawn under it).
+ */
+export function showTrumpPeek(host: HTMLElement, anchor: HTMLElement, info: TrumpCardInfo, note = '', untilRelease = true) {
+  const switching = !!peek;
   peek?.remove();
+  peekAnchor?.classList.remove('peeking');
   const el = document.createElement('div');
   el.className = 'trump-peek';
   el.dataset.rarity = info.rarity;
@@ -73,24 +90,37 @@ export function showTrumpPeek(host: HTMLElement, anchor: HTMLElement, info: Trum
   if (y < 8) y = Math.min(hr.height - h - 8, ar.bottom - hr.top + 12);
   el.style.left = `${x}px`;
   el.style.top = `${y}px`;
-  gsap.from(el, { opacity: 0, y: 14, scale: 0.94, duration: 0.18, ease: 'power2.out' });
+  // moving from card to card the panel just changes; a fresh one rises in
+  if (switching) gsap.from(el, { opacity: 0.6, duration: 0.1 });
+  else gsap.from(el, { opacity: 0, y: 14, scale: 0.94, duration: 0.18, ease: 'power2.out' });
   peek = el;
-  // a release anywhere (the card may have been re-rendered under the finger) closes it
+  peekAnchor = anchor;
+  anchor.classList.add('peeking');
+  // the card left the hand (played, or the hand redrawn): close
+  const watch = () => {
+    if (peek !== el) return;
+    if (!anchor.isConnected) hideTrumpPeek();
+    else requestAnimationFrame(watch);
+  };
+  requestAnimationFrame(watch);
   const close = () => {
     window.removeEventListener('pointerup', close);
     window.removeEventListener('pointercancel', close);
     window.removeEventListener('blur', close);
     if (peek === el) hideTrumpPeek();
   };
-  window.addEventListener('pointerup', close);
-  window.addEventListener('pointercancel', close);
+  // a held card: a release anywhere (the card may have been re-rendered under the finger) closes it
+  if (untilRelease) {
+    window.addEventListener('pointerup', close);
+    window.addEventListener('pointercancel', close);
+  }
   window.addEventListener('blur', close);
 }
 
 export interface TrumpBinding {
   host: HTMLElement;
   info: () => TrumpCardInfo;
-  /** Can it be played now? (a held card says so in its note) */
+  /** Can it be played now? (the open card says so in its note) */
   canPlay: () => boolean;
   play: () => void;
   /** A sound as the card lifts to be read. */
@@ -98,36 +128,64 @@ export interface TrumpBinding {
 }
 
 /**
- * A trump card in the player's hand: a tap plays it (when it can be played), a press held for a
- * moment shows what it does instead. The button stays focusable and a key press plays it too.
+ * A trump card in the player's hand. With a mouse, pointing at it shows what it does and a click
+ * plays it; on a touch screen a tap plays it and a press held for a moment shows what it does
+ * instead. The button stays focusable and a key press plays it too.
  */
 export function bindTrump(btn: HTMLElement, o: TrumpBinding) {
   let timer = 0;
+  let hoverTimer = 0;
   let held = false;
+  let hovering = false;
   btn.setAttribute('aria-disabled', String(!o.canPlay()));
   btn.classList.toggle('off', !o.canPlay());
   const i = o.info();
   btn.setAttribute('aria-label', `${i.name}: ${i.desc}`);
-  const stop = () => {
+  const stopHold = () => {
     if (timer) window.clearTimeout(timer);
     timer = 0;
-    btn.classList.remove('peeking');
   };
+  const open = (note: string, untilRelease: boolean) => {
+    // the lift sounds when a card opens, not on every card the mouse sweeps across
+    if (!peek) o.onPeek?.();
+    showTrumpPeek(o.host, btn, o.info(), t(note), untilRelease);
+  };
+  // the mouse: pointing reads the card
+  btn.addEventListener('pointerenter', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    hovering = true;
+    window.clearTimeout(hoverTimer);
+    hoverTimer = window.setTimeout(
+      () => {
+        if (hovering && btn.isConnected) open(o.canPlay() ? 'tu.clickPlay' : 'tu.notNow', false);
+      },
+      peek ? 0 : HOVER_MS,
+    );
+  });
+  btn.addEventListener('pointerleave', (e) => {
+    stopHold();
+    if (e.pointerType !== 'mouse') return;
+    hovering = false;
+    window.clearTimeout(hoverTimer);
+    // a moment's grace: crossing the gap to the next card switches the panel without a flicker
+    window.setTimeout(() => {
+      if (peekAnchor === btn && !hovering) hideTrumpPeek();
+    }, LEAVE_MS);
+  });
+  // touch (and pen): a held press reads the card
   btn.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     held = false;
-    stop();
+    stopHold();
+    if (e.pointerType === 'mouse') return; // already read by pointing at it
     timer = window.setTimeout(() => {
       timer = 0;
       held = true;
-      btn.classList.add('peeking');
-      o.onPeek?.();
-      showTrumpPeek(o.host, btn, o.info(), t(o.canPlay() ? 'tu.canPlay' : 'tu.notNow'));
+      open(o.canPlay() ? 'tu.canPlay' : 'tu.notNow', true);
     }, HOLD_MS);
   });
-  btn.addEventListener('pointerup', stop);
-  btn.addEventListener('pointercancel', stop);
-  btn.addEventListener('pointerleave', stop);
+  btn.addEventListener('pointerup', stopHold);
+  btn.addEventListener('pointercancel', stopHold);
   // a long press must not open the browser's menu or select text
   btn.addEventListener('contextmenu', (e) => e.preventDefault());
   btn.addEventListener('click', (e) => {
@@ -137,7 +195,9 @@ export function bindTrump(btn: HTMLElement, o: TrumpBinding) {
       e.preventDefault();
       return;
     }
-    if (o.canPlay()) o.play();
+    if (!o.canPlay()) return;
+    if (peekAnchor === btn) hideTrumpPeek();
+    o.play();
   });
 }
 

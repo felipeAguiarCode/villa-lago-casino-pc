@@ -161,7 +161,7 @@ addStrings(
       <h4>Winning</h4>
       <p>Closest to the <b>target</b> (21 unless a trump changes it) without going over wins 1:1. If both bust, the lower total wins. <b>Ties go to the dealer</b> (the house's edge).</p>
       <h4>Trump cards</h4>
-      <p>Each round you and the dealer get a trump card (up to five, kept between rounds). Tap a trump to play it any time on your turn; <b>press and hold it to read what it does</b> without playing it. There are {n} of them, common, uncommon and rare (gold border).</p>
+      <p>Each round you and the dealer get a trump card (up to five, kept between rounds). Click a trump to play it any time on your turn; <b>point at it with the mouse to read what it does</b> (on a touch screen, hold it). There are {n} of them, common, uncommon and rare (gold border).</p>
       <p><b>Bonus trumps:</b> about one hit in five turns up a trump card instead of your card. It joins your hand with its own sound, the turn stays yours, and your next hit is a sure card, so the bonus never costs you your draw. The dealer's cards can bring a trump along with them too.</p>
       <p>The dealer plays trumps too, three turns in four when one fits; his hand also holds five, and a new one replaces his oldest. A <b>Barrier</b> blocks the next attack trump played against its owner.</p>
       <p>Target trumps move the line anywhere from 15 to 30, and Wild Line draws it at random.</p>
@@ -310,7 +310,7 @@ addStrings(
       <h4>Vitória</h4>
       <p>Quem chegar mais perto do <b>alvo</b> (21, a não ser que um trunfo mude) sem passar ganha 1:1. Se os dois estourarem, vence o total menor. <b>Empate é do dealer</b> (a vantagem da casa).</p>
       <h4>Cartas trunfo</h4>
-      <p>A cada rodada você e o dealer ganham um trunfo (até cinco, guardados entre rodadas). Toque num trunfo para usá-lo no seu turno; <b>segure-o para ler o que ele faz</b> sem usá-lo. São {n}, entre comuns, incomuns e raros (borda dourada).</p>
+      <p>A cada rodada você e o dealer ganham um trunfo (até cinco, guardados entre rodadas). Clique num trunfo para usá-lo no seu turno; <b>passe o mouse sobre ele para ler o que ele faz</b> (numa tela de toque, segure-o). São {n}, entre comuns, incomuns e raros (borda dourada).</p>
       <p><b>Trunfos bônus:</b> mais ou menos um pedido em cada cinco tira um trunfo no lugar da sua carta. Ele entra na sua mão com um som próprio, o turno continua seu e o próximo pedido é carta garantida, então o bônus nunca custa o seu saque. As cartas do dealer também podem trazer um trunfo junto.</p>
       <p>O dealer também usa trunfos, em três de cada quatro turnos em que um serve; a mão dele também guarda cinco, e um novo substitui o mais antigo. A <b>Barreira</b> bloqueia o próximo trunfo de ataque usado contra quem a jogou.</p>
       <p>Os trunfos de alvo levam a linha para qualquer ponto entre 15 e 30, e a Linha Louca a sorteia.</p>
