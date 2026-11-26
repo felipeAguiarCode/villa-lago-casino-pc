@@ -66,7 +66,7 @@ The game is set at the Villa Lago casino, whose symbol is **VL on a golden chip*
 | Casino War | War or surrender on ties, tie bet 10:1 |
 | Red Dog | Spread payouts, raise, three of a kind 11:1 |
 
-Every table opens with a cardistry show picked at random, never the same one twice in a row: ribbon spread with a wave turnover, pressure fan, triple cut with a twirl, card spring, waterfall, faro weave, overhand, circle spread, chemmy wash, riffle and bridge (seven opening routines, five shorter reshuffles). Cards are dealt from deck boxes in six original brands, and the tables use icon buttons. Motion is physically modelled: cards fly low, land and slide on the felt with friction, and turn over by rolling on one edge; chips fly on ballistic arcs, bounce and wobble flat like coins; stacks lean with inertia when pushed. Levels follow an RPG curve (`src/core/progression.ts`): the first levels come in a few hands and every level asks for more XP than the last, while bigger bets add XP with diminishing returns; each level-up pays a chip bonus. Text is in English by default with Portuguese available in the settings.
+Every table opens with a cardistry show picked at random, never the same one twice in a row. The flourishes are ribbon spread with a wave turnover, pressure fan, triple cut with a twirl, card spring, waterfall, faro weave, overhand, circle spread, chemmy wash, riffle and an arched bridge, plus bold aerial moves (`src/table/flourish.ts`): a card fountain, boomerang throws, a Sybil cut with orbiting packets, Charlier cuts, an arm spread with a turnover wave, long springs, a tornado, a dribble from height, a pirouette and fan-to-wheel-to-fan. There are 13 opening routines, 5 shorter reshuffles and 32 on the title screen. Cards fly real parabolas, bend in the air and snap flat on landing, piles land a little messy and are squared up with two soft taps, and the sounds land on the impacts. Cards are dealt from deck boxes in six original brands, and the tables use icon buttons. Motion is physically modelled: cards fly low, land and slide on the felt with friction, and turn over by rolling on one edge; chips fly on ballistic arcs, bounce and wobble flat like coins; stacks lean with inertia when pushed. Levels follow an RPG curve (`src/core/progression.ts`): the first levels come in a few hands and every level asks for more XP than the last, while bigger bets add XP with diminishing returns; each level-up pays a chip bonus. Text is in English by default with Portuguese available in the settings.
 
 ## PC edition
 
@@ -100,12 +100,15 @@ Every table opens with a cardistry show picked at random, never the same one twi
 - **Party tables.** Party Blackjack, Party Three Card, Party Ultimate Hold'em, Party Seven-Card Stud, Party Trump 21 and Party Lucky Horses seat four regulars drawn from a pool of 40 single-name characters, pun nicknames in the spirit of poker legends (`src/games/partybj/roster.ts`). A broke regular leaves and a new one sits in. Each hand, every regular draws a hidden mindset (calculated, aggressive, conservative, hybrid or hunch) weighted by temperament, streak and stack (`mindset.ts`); the player never sees it, only the play it produces.
 - **Deck brands per table** (`src/table/deckBrands.ts`). Each table deals from its own brand of deck, with a matching box: *Veloce* (red), *VL Poker Series* (black and gold), *Stallion* (western blue), *Royal Salon* (green), *Canarinho* (Brazilian yellow and green) and the house deck. Where there is room the box stands open with cards poking out and a ribbon of cards spread beside it. The card backs follow the Deck screen. The brands are original designs in the spirit of classic decks; no real trademark is used.
 - **Casino decor per table** (`src/table/decor.ts`, `decorKit.ts`). Each table has its own set of elegant pieces beside the play area, plus a placard with the table's name:
-  - Whisky on the rocks and the dealer button at the poker tables.
-  - Champagne, high-value plaques and a pocket watch at baccarat.
-  - Martinis by the machines.
-  - Caipirinha with sealed decks at the Brazilian tables.
-  - Brass goblets and the pocket watch at the gothic Trump 21.
-  - The glasses, chips, plaques, dice and placards are modelled in code. The goblets and the watch are CC0 models from Poly Haven.
+  - Poker tables: whisky, an Old Fashioned, a Negroni or cognac in a snifter, with a crystal decanter, a card guard, the dealer button, a dealer's chip rack or a banker's lamp with its green shade lit.
+  - Baccarat and Coin Flip: champagne with the bottle in a silver ice bucket, high-value plaques, a pocket watch.
+  - Dragon Tiger and Pai Gow: blue-and-white porcelain tea.
+  - Blackjack and the machines: gin and tonic, Margarita, Cosmopolitan, martini, a brass service bell.
+  - Brazilian tables: caipirinha and cafezinho.
+  - The gothic Trump 21: brass goblets, a lit candle, a claret decanter and the pocket watch.
+  - War and Caribbean Stud: an open humidor of cigars.
+  - The busy tables (the Party tables, Roulette, Lucky Horses, Craps) keep their felt clear.
+  - Everything is modelled in code except the goblets, the watch and the lighter, which are CC0 models from Poly Haven.
 - **Sound.** Besides the Kenney casino sounds, synthesized effects: falling coins and a bell on wins, a jackpot run on big wins, a wah-wah on losses, slot reel ticks, the roulette ball, the spinning coin, the starting fanfare and the gallop, and a clunk on every key.
 - **Mouse and keyboard.** Buttons, chips and tiles light up on hover. **Esc** closes the open panel or the menu.
 
@@ -119,7 +122,7 @@ Every table opens with a cardistry show picked at random, never the same one twi
 ```bash
 npm install
 npm run dev          # http://127.0.0.1:5174
-npm run test         # 541 rule / payout / RTP / trophy tests
+npm run test         # 548 rule / payout / RTP / trophy tests
 npm run sim:showdown # Showdown Poker balance report → docs/showdown-balance.md
 npm run sim:abyss    # Abyss Poker balance report → docs/abyss-balance.md
 npm run sim:brazil   # Brazilian games balance report → docs/brazil-balance.md

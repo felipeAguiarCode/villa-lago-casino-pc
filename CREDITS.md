@@ -23,7 +23,7 @@ Splash "Made with CARD ENGINE": logo e animação originais, feitos para o jogo 
 Trump 21: modo de blackjack original (baralho de 1 a 11 e cartas trunfo com nomes, efeitos e arte próprios),
 inspirado na mecânica de "blackjack com trunfos" — não usa personagens, nomes, arte ou marca de nenhum jogo existente.
 
-Decoração de mesa do PC modelada no código (sem assets externos): copos de cristal com bebidas, torres de fichas, placas de alto valor, botão de dealer, dados, plaquetas de mesa e o charuto aceso no cinzeiro da tela inicial (`src/table/decorKit.ts`). Não há charuto ou cinzeiro CC0 realista nos acervos livres (Poly Haven, Poly Pizza, OpenGameArt); por isso o charuto foi modelado no código.
+Decoração de mesa do PC modelada no código (sem assets externos): copos de cristal com bebidas (whisky, Old Fashioned, Negroni, conhaque, Mojito, Margarita, Cosmopolitan, gin-tônica, martini, caipirinha, vinho, champanhe), cafezinho, chá em porcelana, balde de champanhe, decanter de cristal, abajur de banqueiro, sineta, protetor de cartas, bandeja de fichas, umidor, vela, torres de fichas, placas de alto valor, botão de dealer, dados, plaquetas de mesa e o charuto aceso no cinzeiro da tela inicial (`src/table/decorKit.ts`). Não há charuto ou cinzeiro CC0 realista nos acervos livres (Poly Haven, Poly Pizza, OpenGameArt); por isso o charuto foi modelado no código.
 
 Marcas de baralho do PC (Veloce, VL Poker Series, Stallion, Royal Salon, Canarinho): desenhos originais feitos no código (`src/table/deckBrands.ts`), inspirados no estilo de baralhos clássicos de cassino; não usam nome, logo ou arte de nenhuma marca real.
 

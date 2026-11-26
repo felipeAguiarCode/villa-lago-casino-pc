@@ -1,9 +1,41 @@
-import gsap from 'gsap';
 import * as THREE from 'three';
 import type { Sfx } from '../audio/sfx';
 import { t } from '../core/i18n';
 import type { Hud } from '../ui/hud';
 import { REST_Y, type Card3D, type CardFactory } from './cardMesh';
+import {
+  all,
+  armSpread,
+  boomerang,
+  charlier,
+  dribble,
+  fanWheelFan,
+  fly,
+  fountain,
+  G,
+  glint,
+  hop,
+  longSpring,
+  messy,
+  pirouette,
+  rnd,
+  show,
+  ShowSfx,
+  snapFlat,
+  squareUp,
+  stag,
+  STEP,
+  sybil,
+  tidy,
+  tornado,
+  turn,
+  tw,
+  V,
+  wait,
+  type Ctx,
+  type Move,
+  type V3,
+} from './flourish';
 import type { Stage } from './stage';
 import type { Table } from './table';
 
@@ -30,7 +62,6 @@ export interface ShuffleOpts {
   title?: boolean;
 }
 
-const STEP = 0.0026;
 /** New-deck order: A..K of spades, hearts, diamonds, clubs. */
 const NEW_DECK = Array.from({ length: 52 }, (_, i) => {
   const s = Math.floor(i / 13);
@@ -38,102 +69,87 @@ const NEW_DECK = Array.from({ length: 52 }, (_, i) => {
   return s * 13 + (j === 0 ? 12 : j - 1);
 });
 
-type V3 = THREE.Vector3;
-const V = (x: number, z: number) => new THREE.Vector3(x, 0, z);
-const all = (ps: unknown[]) => Promise.all(ps).then(() => undefined);
-const rnd = (a: number) => (Math.random() - 0.5) * a;
-
-/**
- * Every tween of the show goes through here, so the show can run faster than the rest of the game
- * (and speed up on a tap) without touching the global timeline — changing the global time scale
- * mid-game left the next animation scheduled in the future.
- */
-const show = { rate: 1, live: new Set<gsap.core.Tween>() };
-const tw = (target: object, vars: gsap.TweenVars) => {
-  const tween = gsap.to(target, vars);
-  tween.timeScale(show.rate);
-  show.live.add(tween);
-  return tween.then(() => {
-    show.live.delete(tween);
-  });
-};
-const wait = (s: number) => tw({ t: 0 }, { t: 1, duration: s, ease: 'none' });
-
-/** Moves a card to (x, z) along a little arc and lands it at height y. */
-function hop(c: Card3D, to: V3, y: number, dur: number, delay = 0, h = 0.18, ease = 'power2.inOut') {
-  return all([
-    tw(c.obj.position, { x: to.x, z: to.z, duration: dur, delay, ease }),
-    tw(c.obj.position, { y: y + h, duration: dur / 2, delay, ease: 'sine.out' }).then(() => tw(c.obj.position, { y, duration: dur / 2, ease: 'sine.in' })),
-  ]);
-}
-
-/** Turns a card over in place (rolls up on its edge, curls a little). */
-function turn(c: Card3D, z: number, dur: number, delay = 0, lift = 0.3) {
-  return all([
-    tw(c.obj.rotation, { z, duration: dur, delay, ease: 'power2.inOut' }),
-    tw(c.obj.position, { y: `+=${lift}`, duration: dur / 2, delay, yoyo: true, repeat: 1, ease: 'sine.out' }),
-    tw(c.bend, { x: 1.0, duration: dur / 2, delay, yoyo: true, repeat: 1, ease: 'sine.out' }),
-  ]);
-}
-
-/** Squares a pile at C (bottom to top in `order`). */
-function square(order: Card3D[], C: V3, dur = 0.16) {
-  return all(order.map((c, i) => all([tw(c.obj.position, { x: C.x, z: C.z, y: REST_Y + i * STEP, duration: dur, ease: 'power2.out' }), tw(c.obj.rotation, { y: 0, duration: dur })])));
-}
-
-interface Ctx {
-  C: V3;
-  sfx: Sfx;
-}
-
-// ================================================================= moves (each returns the new order)
+// ================================================================= table shuffles (each returns the new order)
+// The engine, the physics helpers and the bold aerial moves live in ./flourish.ts.
 
 /** Ribbon spread along a smile, a wave turns every card face up, then they are swept back face down. */
 async function ribbonWave(order: Card3D[], { C, sfx }: Ctx) {
-  const R = 2.25;
-  const A = 0.6;
+  const R = 2.25; // radius of the smile
+  const A = 0.6; // its half angle
+  const T_SPREAD = 0.32;
+  const GAP = 0.011; // the spread and the turnover wave, card to card
+  const n = order.length;
+  // a nudge back before the push (anticipation)
+  await all(order.map((c) => tw(c.obj.position, { x: `-=0.035`, duration: 0.06, ease: 'power1.out' })));
   sfx.play('fan');
   await all(
     order.map((c, i) => {
-      const th = -A + (2 * A * i) / (order.length - 1);
+      const th = -A + (2 * A * i) / (n - 1);
+      const d = stag(i, GAP);
       return all([
-        tw(c.obj.position, { x: C.x + R * Math.sin(th), z: C.z - R * Math.cos(th) + R - 0.05, y: REST_Y + i * 0.0016, duration: 0.34, delay: i * 0.011, ease: 'power2.out' }),
-        tw(c.obj.rotation, { y: -th, duration: 0.34, delay: i * 0.011, ease: 'power2.out' }),
+        tw(c.obj.position, { x: C.x + R * Math.sin(th), z: C.z - R * Math.cos(th) + R - 0.05, y: REST_Y + i * 0.0016, duration: T_SPREAD, delay: d, ease: 'power3.out' }),
+        tw(c.obj.rotation, { y: -th + rnd(0.03), duration: T_SPREAD, delay: d, ease: 'power2.out' }),
+        // the leading edge lifts a little as it slides: a glint runs down the ribbon
+        tw(c.obj.rotation, { x: 0.12, duration: T_SPREAD / 2, delay: d, yoyo: true, repeat: 1, ease: 'sine.inOut' }),
       ]);
     }),
   );
   for (let k = 0; k < 6; k++) sfx.play('slide', { vol: 0.25, delay: k * 0.1, rate: 1.2 });
-  await all(order.map((c, i) => turn(c, 0, 0.3, i * 0.011, 0.22)));
-  await wait(0.3);
+  await all(order.map((c, i) => turn(c, 0, 0.3, stag(i, GAP), 0.22)));
+  await glint(order, { tilt: 0.2, dur: 0.16, gap: 0.0025 });
   sfx.play('fan', { vol: 0.7 });
+  sfx.play('place', { vol: 0.35, rate: 1.2, delay: (n - 1) * 0.009 + 0.5 });
   await all(
     order.map((c, i) => {
-      const d = (order.length - 1 - i) * 0.009;
+      const d = stag(n - 1 - i, 0.009);
+      const y = REST_Y + i * STEP;
+      const m = messy();
       return all([
-        tw(c.obj.rotation, { z: Math.PI, y: 0, duration: 0.34, delay: d, ease: 'power2.inOut' }),
-        tw(c.obj.position, { x: C.x, z: C.z, duration: 0.42, delay: d + 0.08, ease: 'power2.inOut' }),
-        tw(c.obj.position, { y: REST_Y + i * STEP + 0.16, duration: 0.2, delay: d, yoyo: true, repeat: 1, ease: 'sine.out' }),
-        tw(c.bend, { x: -0.9, duration: 0.17, delay: d, yoyo: true, repeat: 1 }),
+        tw(c.obj.rotation, { z: Math.PI, y: m.yaw, duration: 0.34, delay: d, ease: 'power2.inOut' }),
+        tw(c.obj.position, { x: C.x + m.x, z: C.z + m.z, duration: 0.42, delay: d + 0.08, ease: 'power2.inOut' }),
+        tw(c.obj.position, { y: y + 0.16, duration: 0.2, delay: d, ease: 'sine.out' }).then(() => tw(c.obj.position, { y, duration: 0.3, ease: 'power2.in' })),
+        tw(c.bend, { x: -0.9, duration: 0.17, delay: d, ease: 'sine.out' })
+          .then(() => tw(c.bend, { x: -0.15, duration: 0.17, ease: 'sine.in' }))
+          .then(() => snapFlat(c)),
       ]);
     }),
   );
-  order.forEach((c, i) => (c.obj.position.y = REST_Y + i * STEP));
   return order;
 }
 
-/** Table riffle: split, thumbs lift the inner corners, the halves interleave into the middle. */
+/**
+ * Table riffle: the deck is cut in two, the halves are set corner to corner, the thumbs curl their
+ * inner edges up and let the cards go in a buzzing interleave, then the halves are pushed together.
+ */
 async function riffle(stack: Card3D[], { C, sfx }: Ctx) {
+  const GAP = 0.36; // half-distance between the halves (their near corners overlap)
+  const YAW = 0.22; // the halves angle in
+  const CURL = -0.9; // a lifted card's curl (edges up)
+  const ROLL = 0.11; // the inner edge lifts
+  const DROP = 0.0155; // mean time between two released cards
+  const T_PUSH = 0.18;
   const half = Math.floor(stack.length / 2) + Math.round(rnd(4));
   const left = stack.slice(0, half);
   const right = stack.slice(half);
-  const L = V(C.x - 0.5, C.z + 0.1);
-  const Rp = V(C.x + 0.5, C.z + 0.1);
-  const dur = 0.3;
+  const L = V(C.x - GAP, C.z + 0.1);
+  const Rp = V(C.x + GAP, C.z + 0.1);
+  // the cut: the top half is carried off to the right, the paper drags a little (the packets lean)
+  sfx.play('slide', { vol: 0.35, rate: 1.15 });
   await all([
-    ...left.map((c, i) => all([hop(c, L, REST_Y + i * STEP, dur, 0, 0.02), tw(c.obj.rotation, { y: 0.24, duration: dur, ease: 'power2.inOut' })])),
-    ...right.map((c, i) => all([hop(c, Rp, REST_Y + i * STEP, dur, 0, 0.06), tw(c.obj.rotation, { y: -0.24, duration: dur, ease: 'power2.inOut' })])),
+    ...left.map((c, i) => all([hop(c, L, REST_Y + i * STEP, 0.28, i * 0.0012, 0.02), tw(c.obj.rotation, { x: 0, y: YAW, duration: 0.28, ease: 'power2.inOut' })])),
+    ...right.map((c, i) => all([hop(c, Rp, REST_Y + i * STEP, 0.28, i * 0.0015, 0.07), tw(c.obj.rotation, { x: 0, y: -YAW, duration: 0.28, ease: 'power2.inOut' })])),
   ]);
-  await all([...left.map((c) => tw(c.bend, { x: -0.7, duration: 0.14 })), ...right.map((c) => tw(c.bend, { x: 0.7, duration: 0.14 }))]);
+  // the thumbs curl the inner edges up
+  const curl = (list: Card3D[], roll: number) =>
+    list.map((c, i) =>
+      all([
+        tw(c.bend, { x: CURL, duration: 0.12, delay: i * 0.0008, ease: 'power2.out' }),
+        tw(c.obj.rotation, { z: Math.PI + roll, duration: 0.12, ease: 'power2.out' }),
+        tw(c.obj.position, { y: REST_Y + 0.03 + i * STEP * 1.3, duration: 0.12 }),
+      ]),
+    );
+  sfx.play('shuffle', { vol: 0.55, rate: 1.2, delay: 0.12 });
+  await all([...curl(left, ROLL), ...curl(right, -ROLL)]);
   const order: Card3D[] = [];
   let li = 0;
   let ri = 0;
@@ -148,77 +164,138 @@ async function riffle(stack: Card3D[], { C, sfx }: Ctx) {
     else if (ri >= right.length) fromLeft = true;
     else fromLeft = !fromLeft;
   }
-  sfx.play('shuffle');
+  // the release: uneven, in bursts — a card or a clump springs off the thumb and slaps flat
+  const times: number[] = [];
+  let at = 0;
+  for (let k = 0; k < order.length; k++) {
+    times.push(at);
+    at += DROP * (Math.random() < 0.18 ? 0.25 : 0.7 + Math.random() * 0.6);
+  }
   await all(
-    order.map((c, k) => {
-      const d = k * 0.019;
-      return all([
-        tw(c.obj.position, { x: C.x + rnd(0.02), z: C.z + rnd(0.02), y: REST_Y + k * STEP, duration: 0.17, delay: d, ease: 'power2.in' }),
-        tw(c.obj.rotation, { y: rnd(0.06), duration: 0.17, delay: d, ease: 'power2.out' }),
-        tw(c.bend, { x: 0, duration: 0.12, delay: d + 0.05 }),
-      ]);
-    }),
-  );
-  await all(order.map((c) => tw(c.obj.rotation, { y: 0, duration: 0.14 })));
-  return order;
-}
-
-/** Bridge: arch the deck and let it cascade down. */
-async function bridge(order: Card3D[], { sfx }: Ctx) {
-  sfx.play('fan', { vol: 0.8 });
-  await all(order.map((c, i) => tw(c.obj.position, { y: REST_Y + i * STEP + 0.12, duration: 0.22, ease: 'power2.out' })));
-  await all(order.map((c) => tw(c.bend, { y: -1.25, duration: 0.22, ease: 'power2.out' })));
-  await all(
-    order.map((c, i) =>
+    order.map((c, k) =>
       all([
-        tw(c.bend, { y: 0, duration: 0.2, delay: i * 0.009, ease: 'power2.in' }),
-        tw(c.obj.position, { y: REST_Y + i * STEP, duration: 0.2, delay: i * 0.009, ease: 'bounce.out' }),
+        tw(c.obj.position, { y: REST_Y + k * STEP, duration: 0.07, delay: times[k], ease: 'power2.in', onStart: () => sfx.tick(0.05 + Math.random() * 0.04, 0.6 + Math.random() * 0.35) }),
+        tw(c.obj.rotation, { z: Math.PI, duration: 0.07, delay: times[k], ease: 'power2.in' }),
+        tw(c.bend, { x: 0, duration: 0.06, delay: times[k], ease: 'power3.in' })
+          .then(() => tw(c.bend, { x: -0.12, duration: 0.03 }))
+          .then(() => tw(c.bend, { x: 0, duration: 0.06, ease: 'sine.out' })),
       ]),
     ),
   );
-  sfx.play('place', { vol: 0.6 });
-  await wait(0.12);
+  // the halves are pushed home (not quite square yet)
+  sfx.play('slide', { vol: 0.4, rate: 1.05 });
+  await all(
+    order.map((c, k) => {
+      const m = messy(0.012);
+      return all([
+        tw(c.obj.position, { x: C.x + m.x, z: C.z + m.z, duration: T_PUSH, delay: k * 0.0008, ease: 'power2.inOut' }),
+        tw(c.obj.rotation, { y: m.yaw, duration: T_PUSH, delay: k * 0.0008, ease: 'power2.inOut' }),
+      ]);
+    }),
+  );
   return order;
 }
 
-/** Pressure fan: the deck opens into a half wheel around a point near the player, face up, and closes. */
+/** Bridge: a squeeze, the deck bowed into an arch standing on its ends, then released to cascade flat with a purr. */
+async function bridge(order: Card3D[], { C, sfx }: Ctx) {
+  const ARCH = 1.25; // the arch's bend (along the cards' length)
+  const LIFT = 0.12; // the middle rises; the ends stay on the felt
+  const GAP = 0.0072; // the cascade, card to card (from the bottom)
+  const T_FALL = 0.16;
+  // a squeeze the other way first (anticipation)
+  await all(order.map((c) => tw(c.bend, { y: -0.18, duration: 0.06, ease: 'power1.out' })));
+  sfx.play('fan', { vol: 0.8 });
+  await all(
+    order.map((c, i) =>
+      all([
+        tw(c.obj.position, { x: C.x, z: C.z, y: REST_Y + i * STEP + LIFT, duration: 0.2, ease: 'power2.out' }),
+        tw(c.obj.rotation, { x: 0, y: 0, duration: 0.2 }),
+        // bowed a touch too far and held: the tension
+        tw(c.bend, { y: ARCH, duration: 0.2, ease: 'back.out(2.2)' }),
+      ]),
+    ),
+  );
+  sfx.play('fan', { vol: 0.5, rate: 1.35 });
+  sfx.play('place', { vol: 0.6, delay: (order.length - 1) * GAP + T_FALL });
+  await all(
+    order.map((c, i) => {
+      const d = stag(i, GAP, 0.8);
+      const y = REST_Y + i * STEP;
+      const m = messy(0.008);
+      return all([
+        // the bow and the drop go together, so the ends stay on the felt as the middle comes down
+        tw(c.bend, { y: 0, duration: T_FALL, delay: d, ease: 'power2.in', onStart: i % 2 ? undefined : () => sfx.tick(0.045, 0.75) }).then(() => snapFlat(c)),
+        tw(c.obj.position, { y, x: C.x + m.x, z: C.z + m.z, duration: T_FALL, delay: d, ease: 'power2.in' }),
+        tw(c.obj.rotation, { y: m.yaw, duration: T_FALL, delay: d }),
+      ]);
+    }),
+  );
+  return order;
+}
+
+/** Pressure fan: the deck springs open into a half wheel around a point near the player, face up, and closes. */
 async function fan(order: Card3D[], { C, sfx }: Ctx) {
   const n = order.length;
-  const P = V(C.x, C.z + 0.7);
-  const R = 0.78;
-  const A = 1.2;
+  const R = 0.78; // pivot to card centre
+  const A = 1.2; // half-angle of the fan
+  const T_OPEN = 0.38;
+  const T_CLOSE = 0.34;
+  const P = V(C.x, C.z + R); // the pivot: the deck sits at angle 0
+  const ang = order.map(() => ({ th: 0 }));
+  const place = (i: number) => {
+    const p = order[i].obj.position;
+    p.x = P.x + R * Math.sin(ang[i].th);
+    p.z = P.z - R * Math.cos(ang[i].th);
+    order[i].obj.rotation.y = -ang[i].th;
+  };
   sfx.play('fan');
   await all(
     order.map((c, i) => {
       const th = -A + (2 * A * i) / (n - 1);
-      const d = i * 0.007;
+      const d = stag(i, 0.007);
       return all([
-        tw(c.obj.position, { x: P.x + R * Math.sin(th), z: P.z - R * Math.cos(th), duration: 0.38, delay: d, ease: 'power3.out' }),
-        tw(c.obj.position, { y: REST_Y + 0.3 + i * 0.002, duration: 0.19, delay: d, ease: 'sine.out' }).then(() => tw(c.obj.position, { y: REST_Y + 0.02 + i * 0.002, duration: 0.19, ease: 'sine.in' })),
-        tw(c.obj.rotation, { y: -th, z: 0, duration: 0.38, delay: d, ease: 'power2.inOut' }),
-        tw(c.bend, { x: 0.8, duration: 0.19, delay: d, yoyo: true, repeat: 1 }),
+        // springs open a touch too far and settles back
+        tw(ang[i], { th, duration: T_OPEN, delay: d, ease: 'back.out(1.4)', onUpdate: () => place(i) }),
+        tw(c.obj.position, { y: REST_Y + 0.3 + i * 0.002, duration: T_OPEN * 0.45, delay: d, ease: 'sine.out' }).then(() =>
+          tw(c.obj.position, { y: REST_Y + 0.02 + i * 0.002, duration: T_OPEN * 0.55, ease: 'power2.in' }),
+        ),
+        tw(c.obj.rotation, { x: 0, z: 0, duration: T_OPEN, delay: d, ease: 'power2.inOut' }),
+        tw(c.bend, { x: 0.8, duration: T_OPEN * 0.45, delay: d, ease: 'sine.out' })
+          .then(() => tw(c.bend, { x: 0.2, duration: T_OPEN * 0.3, ease: 'power1.in' }))
+          .then(() => snapFlat(c)),
       ]);
     }),
   );
-  // a ripple runs through the open fan
-  await all(order.map((c, i) => tw(c.obj.position, { y: `+=0.07`, duration: 0.1, delay: i * 0.005, yoyo: true, repeat: 1, ease: 'sine.inOut' })));
-  await wait(0.12);
+  // a ripple runs through the open fan, the faces catching the light
+  await all(
+    order.map((c, i) =>
+      all([
+        tw(c.obj.position, { y: `+=0.07`, duration: 0.09, delay: i * 0.004, yoyo: true, repeat: 1, ease: 'sine.inOut' }),
+        tw(c.obj.rotation, { x: 0.22, duration: 0.09, delay: i * 0.004, yoyo: true, repeat: 1, ease: 'sine.inOut' }),
+      ]),
+    ),
+  );
   sfx.play('fan', { vol: 0.7 });
+  sfx.play('place', { vol: 0.35, rate: 1.2, delay: (n - 1) * 0.006 + T_CLOSE });
   await all(
     order.map((c, i) => {
-      const d = (n - 1 - i) * 0.006;
+      const d = stag(n - 1 - i, 0.006);
+      const y = REST_Y + i * STEP;
+      const m = messy();
       return all([
-        tw(c.obj.position, { x: C.x, z: C.z, duration: 0.34, delay: d, ease: 'power2.inOut' }),
-        tw(c.obj.position, { y: REST_Y + i * STEP + 0.3, duration: 0.17, delay: d, ease: 'sine.out' }).then(() => tw(c.obj.position, { y: REST_Y + i * STEP, duration: 0.17, ease: 'sine.in' })),
-        tw(c.obj.rotation, { y: 0, z: Math.PI, duration: 0.34, delay: d, ease: 'power2.inOut' }),
+        tw(c.obj.position, { x: C.x + m.x, z: C.z + m.z, duration: T_CLOSE, delay: d, ease: 'power2.inOut' }),
+        tw(c.obj.position, { y: y + 0.3, duration: T_CLOSE / 2, delay: d, ease: 'sine.out' }).then(() => tw(c.obj.position, { y, duration: T_CLOSE / 2, ease: 'power2.in' })),
+        tw(c.obj.rotation, { y: m.yaw, z: Math.PI, duration: T_CLOSE, delay: d, ease: 'power2.inOut' }),
       ]);
     }),
   );
   return order;
 }
 
-/** Triple cut with a twirl: three packets fly apart, spin in place and restack in a new order. */
+/** Triple cut with a twirl: three packets fly apart leaning into the move, spin in place and restack in a new order. */
 async function packets(order: Card3D[], { C, sfx }: Ctx) {
+  const LAG = 0.0012; // a packet's top cards trail its bottom (the lean of a packet in motion)
+  const LEAN = 0.16; // tilt into the flight
   const n = order.length;
   const a = Math.floor(n / 3) + Math.round(rnd(4));
   const b = Math.floor((2 * n) / 3) + Math.round(rnd(4));
@@ -226,8 +303,21 @@ async function packets(order: Card3D[], { C, sfx }: Ctx) {
   const spots = [V(C.x - 0.8, C.z + 0.12), V(C.x, C.z - 0.42), V(C.x + 0.8, C.z + 0.12)];
   const dest = [2, 0, 1].sort(() => Math.random() - 0.5);
   sfx.play('shove', { vol: 0.5 });
-  await all(P.map((pk, k) => all(pk.map((c, i) => hop(c, spots[dest[k]], REST_Y + i * STEP, 0.3, (2 - k) * 0.08, 0.16 + k * 0.05)))));
-  // each packet lifts and spins half a turn
+  await all(
+    P.map((pk, k) => {
+      const d0 = (2 - k) * 0.08;
+      sfx.play('place', { vol: 0.28, rate: 1.2, delay: d0 + 0.3 });
+      return all(
+        pk.map((c, i) =>
+          all([
+            hop(c, spots[dest[k]], REST_Y + i * STEP, 0.3, d0 + i * LAG, 0.16 + k * 0.05),
+            tw(c.obj.rotation, { x: LEAN, duration: 0.15, delay: d0, yoyo: true, repeat: 1, ease: 'sine.inOut' }),
+          ]),
+        ),
+      );
+    }),
+  );
+  // each packet lifts and spins half a turn, its top cards lagging (it twists into a little fan and back)
   sfx.play('fan', { vol: 0.5, rate: 1.2 });
   await all(
     P.map((pk, k) => {
@@ -235,21 +325,32 @@ async function packets(order: Card3D[], { C, sfx }: Ctx) {
       return all(
         pk.map((c, i) =>
           all([
-            tw(c.obj.rotation, { y: dir * Math.PI, duration: 0.36, delay: k * 0.06, ease: 'power2.inOut' }),
-            tw(c.obj.position, { y: REST_Y + i * STEP + 0.14, duration: 0.18, delay: k * 0.06, yoyo: true, repeat: 1, ease: 'sine.out' }),
+            tw(c.obj.rotation, { y: dir * Math.PI, duration: 0.34, delay: k * 0.06 + i * 0.0025, ease: 'power2.inOut' }),
+            tw(c.obj.position, { y: REST_Y + i * STEP + 0.14, duration: 0.17, delay: k * 0.06, ease: 'sine.out' }).then(() =>
+              tw(c.obj.position, { y: REST_Y + i * STEP, duration: 0.17, ease: 'power2.in' }),
+            ),
           ]),
         ),
       );
     }),
   );
   order.forEach((c) => (c.obj.rotation.y = 0));
-  // restack: packets come back one on top of the other
+  // restack: packets come back one on top of the other, each landing with a slap
   const seq = [1, 2, 0].sort(() => Math.random() - 0.5).map((k) => P[k]);
   const out: Card3D[] = [];
   for (const pk of seq) {
     const base = out.length;
-    sfx.play('place', { vol: 0.5 });
-    await all(pk.map((c, i) => hop(c, C, REST_Y + (base + i) * STEP, 0.22, 0, 0.12)));
+    const m = messy(0.016);
+    sfx.play('place', { vol: 0.45, delay: 0.2 });
+    await all(
+      pk.map((c, i) =>
+        all([
+          hop(c, V(C.x + m.x, C.z + m.z), REST_Y + (base + i) * STEP, 0.2, i * LAG * 0.5, 0.12),
+          tw(c.obj.rotation, { y: m.yaw, duration: 0.2 }),
+          tw(c.bend, { y: -0.22, duration: 0.1, delay: 0.1, yoyo: true, repeat: 1, ease: 'sine.out' }),
+        ]),
+      ),
+    );
     out.push(...pk);
   }
   return out;
@@ -257,133 +358,174 @@ async function packets(order: Card3D[], { C, sfx }: Ctx) {
 
 /** Card spring: the deck squeezed and sprung in an arc from one side to the other and back. */
 async function spring(order: Card3D[], { C, sfx }: Ctx) {
-  const L = V(C.x - 0.85, C.z);
-  const R = V(C.x + 0.85, C.z);
-  await all(order.map((c, i) => hop(c, L, REST_Y + i * STEP + 0.25, 0.22, 0, 0.05)));
+  const X = 0.85; // the hands are 2X apart
+  const Y = 0.25; // height of the hands
+  const H = 0.28; // arc height of a sprung card (with G the flight takes ≈0.37 s)
+  const GAP = 0.0055; // between two cards
+  const SQUEEZE = 1.4; // the bow of the squeezed deck
+  const L = V(C.x - X, C.z);
+  const R = V(C.x + X, C.z);
+  await all(
+    order.map((c, i) => all([hop(c, L, Y + i * STEP, 0.2, 0, 0.05), tw(c.obj.rotation, { x: 0, y: 0, duration: 0.2 }), tw(c.bend, { y: SQUEEZE * 0.7, duration: 0.2, ease: 'power2.in' })])),
+  );
   let cur = order;
   for (const [from, to] of [
     [L, R],
     [R, L],
   ] as const) {
+    // the squeeze tightens just before the cards go
+    await all(cur.map((c) => tw(c.bend, { y: SQUEEZE, duration: 0.04, ease: 'power2.in' })));
     sfx.play('fan', { vol: 0.9, rate: 1.15 });
     const next = [...cur].reverse();
     await all(
-      next.map((c, i) => {
-        const d = i * 0.0085;
-        const y = REST_Y + i * STEP + 0.25;
-        return all([
-          tw(c.obj.position, { x: to.x, z: to.z + rnd(0.02), duration: 0.32, delay: d, ease: 'none' }),
-          tw(c.obj.position, { y: y + 0.6, duration: 0.16, delay: d, ease: 'sine.out' }).then(() => tw(c.obj.position, { y, duration: 0.16, ease: 'sine.in' })),
-          tw(c.bend, { y: 1.4, duration: 0.16, delay: d, yoyo: true, repeat: 1, ease: 'sine.inOut' }),
-          tw(c.obj.rotation, { x: from.x < to.x ? -0.5 : 0.5, duration: 0.16, delay: d, yoyo: true, repeat: 1 }),
-        ]);
-      }),
+      next.map((c, i) =>
+        fly(c, {
+          to: V(to.x + rnd(0.02), to.z + rnd(0.02), Y + i * STEP),
+          h: H,
+          delay: stag(i, GAP, 0.4),
+          lean: from.x < to.x ? -0.5 : 0.5,
+          flutter: 0.05,
+          bow: 0.3,
+          onStart: i % 2 ? undefined : () => sfx.tick(0.045, 0.95),
+        }),
+      ),
     );
     cur = next;
   }
-  sfx.play('place', { vol: 0.5 });
-  await all(cur.map((c, i) => hop(c, C, REST_Y + i * STEP, 0.24, 0, 0.04)));
+  sfx.play('place', { vol: 0.5, delay: 0.2 });
+  await all(cur.map((c, i) => hop(c, C, REST_Y + i * STEP, 0.2, i * 0.0004, 0.04)));
   return cur;
 }
 
-/** Waterfall: the deck is lifted and the cards rain down one by one onto the table. */
+/** Waterfall: the deck is lifted and the cards fall one by one, fluttering, onto the table. */
 async function waterfall(order: Card3D[], { C, sfx }: Ctx) {
-  const H = V(C.x + 0.18, C.z - 0.25);
+  const HOLD = V(C.x + 0.18, C.z - 0.25);
+  const Y = 0.7; // height of the held deck (with G a card falls in ≈0.3 s)
+  const GAP = 0.011;
   await all(
     order.map((c, i) =>
       all([
-        tw(c.obj.position, { x: H.x, z: H.z, y: 0.7 + i * STEP, duration: 0.24, ease: 'power2.out' }),
-        tw(c.obj.rotation, { x: -0.35, duration: 0.24 }),
+        tw(c.obj.position, { x: HOLD.x, z: HOLD.z, y: Y + i * STEP, duration: 0.24, ease: 'back.out(1.3)' }),
+        tw(c.obj.rotation, { x: -0.35, y: 0, duration: 0.24 }),
         tw(c.bend, { y: 0.9, duration: 0.24 }),
       ]),
     ),
   );
   sfx.play('fan', { vol: 0.8, rate: 0.9 });
-  const out = [...order];
+  sfx.play('place', { vol: 0.5, delay: (order.length - 1) * GAP + Math.sqrt((2 * Y) / G) });
   await all(
-    out.map((c, i) => {
-      const d = i * 0.011;
-      return all([
-        tw(c.obj.position, { x: C.x + rnd(0.03), z: C.z + rnd(0.03), y: REST_Y + i * STEP, duration: 0.26, delay: d, ease: 'power2.in' }),
-        tw(c.obj.rotation, { x: 0, y: rnd(0.12), duration: 0.26, delay: d }),
-        tw(c.bend, { y: 0, x: rnd(0.6), duration: 0.13, delay: d }).then(() => tw(c.bend, { x: 0, duration: 0.13 })),
-      ]);
+    order.map((c, i) => {
+      const m = messy(0.03);
+      return fly(c, {
+        to: V(C.x + m.x, C.z + m.z, REST_Y + i * STEP),
+        drop: true,
+        delay: stag(i, GAP),
+        rot: { x: 0, y: m.yaw, z: Math.PI },
+        flutter: 0.14,
+        onLand: i % 3 ? undefined : () => sfx.tick(0.045, 0.6),
+      });
     }),
   );
-  sfx.play('place', { vol: 0.5 });
-  await square(out, C);
-  return out;
+  return order;
 }
 
-/** Faro weave: two exact halves pushed corner to corner so they interlace perfectly. */
+/** Faro weave: two exact halves pushed corner to corner so they interlace perfectly, then sprung together. */
 async function faro(order: Card3D[], { C, sfx }: Ctx) {
   const half = Math.floor(order.length / 2);
   const A = order.slice(0, half);
   const B = order.slice(half);
   const inA = new Set(A);
+  sfx.play('place', { vol: 0.25, rate: 1.5, delay: 0.28 });
   await all([
-    ...A.map((c, i) => all([hop(c, V(C.x - 0.42, C.z + 0.05), REST_Y + i * STEP, 0.26, 0, 0.04), tw(c.obj.rotation, { y: 0.1, duration: 0.26 })])),
-    ...B.map((c, i) => all([hop(c, V(C.x + 0.42, C.z + 0.05), REST_Y + i * STEP, 0.26, 0, 0.1), tw(c.obj.rotation, { y: -0.1, duration: 0.26 })])),
+    ...A.map((c, i) => all([hop(c, V(C.x - 0.42, C.z + 0.05), REST_Y + i * STEP, 0.26, i * 0.001, 0.04), tw(c.obj.rotation, { x: 0, y: 0.1, duration: 0.26 })])),
+    ...B.map((c, i) => all([hop(c, V(C.x + 0.42, C.z + 0.05), REST_Y + i * STEP, 0.26, i * 0.001, 0.1), tw(c.obj.rotation, { x: 0, y: -0.1, duration: 0.26 })])),
   ]);
   const out: Card3D[] = [];
   for (let i = 0; i < half; i++) out.push(A[i], B[i]);
   for (let i = half; i < B.length; i++) out.push(B[i]);
-  sfx.play('shuffle', { rate: 1.25, vol: 0.8 });
-  // halves push in: cards weave half way, bowed like a pressed faro
+  sfx.play('shuffle', { rate: 1.25, vol: 0.7 });
+  // halves push in: cards weave half way, bowed like a pressed faro (a zip of clicks)
   await all(
     out.map((c, k) =>
       all([
-        tw(c.obj.position, { x: C.x + (inA.has(c) ? -0.2 : 0.2), y: REST_Y + k * STEP, duration: 0.3, delay: k * 0.004, ease: 'power2.out' }),
+        tw(c.obj.position, {
+          x: C.x + (inA.has(c) ? -0.2 : 0.2) + rnd(0.006),
+          y: REST_Y + k * STEP,
+          duration: 0.3,
+          delay: k * 0.004,
+          ease: 'power2.out',
+          onStart: k % 3 ? undefined : () => sfx.tick(0.04, 1.1),
+        }),
         tw(c.bend, { x: inA.has(c) ? -0.5 : 0.5, duration: 0.3, delay: k * 0.004 }),
       ]),
     ),
   );
   // the woven deck is bowed and springs together
   await all(out.map((c, k) => all([tw(c.bend, { x: 0, y: -0.8, duration: 0.15, delay: k * 0.004 }), tw(c.obj.position, { y: `+=0.06`, duration: 0.15, delay: k * 0.004 })])));
-  sfx.play('place', { vol: 0.6 });
+  sfx.play('fan', { vol: 0.45, rate: 1.4 });
+  sfx.play('place', { vol: 0.5, delay: (out.length - 1) * 0.005 + 0.16 });
   await all(
-    out.map((c, k) =>
-      all([
-        tw(c.bend, { y: 0, duration: 0.16, delay: k * 0.005, ease: 'power2.in' }),
-        tw(c.obj.position, { x: C.x, z: C.z, y: REST_Y + k * STEP, duration: 0.18, delay: k * 0.005, ease: 'power2.in' }),
-        tw(c.obj.rotation, { y: 0, duration: 0.18, delay: k * 0.005 }),
-      ]),
-    ),
+    out.map((c, k) => {
+      const m = messy(0.01);
+      return all([
+        tw(c.bend, { y: 0, duration: 0.14, delay: k * 0.005, ease: 'power2.in' }).then(() => snapFlat(c)),
+        tw(c.obj.position, { x: C.x + m.x, z: C.z + m.z, y: REST_Y + k * STEP, duration: 0.16, delay: k * 0.005, ease: 'power2.in' }),
+        tw(c.obj.rotation, { y: m.yaw, duration: 0.16, delay: k * 0.005 }),
+      ]);
+    }),
   );
   return out;
 }
 
-/** Overhand shuffle: small packets slide off the top of the raised deck onto a new pile. */
+/** Overhand shuffle: small packets slide off the top of the raised, tilted deck and drop onto a new pile. */
 async function overhand(order: Card3D[], { C, sfx }: Ctx) {
   const Hd = V(C.x + 0.5, C.z + 0.05);
   const P = V(C.x - 0.4, C.z);
+  const LAG = 0.003; // a packet's top cards trail as it slides off
+  const BEAT = 0.078; // time between two packets
   await all(
     order.map((c, i) =>
-      all([tw(c.obj.position, { x: Hd.x, z: Hd.z, y: 0.32 + i * STEP, duration: 0.22, ease: 'power2.out' }), tw(c.obj.rotation, { z: Math.PI - 0.35, y: 0.08, duration: 0.22 })]),
+      all([
+        tw(c.obj.position, { x: Hd.x, z: Hd.z, y: 0.32 + i * STEP, duration: 0.2, ease: 'back.out(1.2)' }),
+        tw(c.obj.rotation, { x: 0, z: Math.PI - 0.35, y: 0.08, duration: 0.2 }),
+      ]),
     ),
   );
   const rest = [...order];
   const out: Card3D[] = [];
   const landing: Promise<void>[] = [];
   while (rest.length) {
-    const take = Math.min(rest.length, 4 + Math.floor(Math.random() * 5));
+    const take = Math.min(rest.length, 5 + Math.floor(Math.random() * 5));
     const pk = rest.splice(rest.length - take, take);
     const base = out.length;
     sfx.play('slide', { vol: 0.45, rate: 1.1 + Math.random() * 0.2 });
-    // the packet keeps its order and lands on top of the pile
+    // the packet keeps its order and lands on top of the pile, flexing as it comes off
+    const m = messy(0.04);
     landing.push(
       all(
         pk.map((c, i) =>
-          all([hop(c, V(P.x + rnd(0.04), P.z + rnd(0.04)), REST_Y + (base + i) * STEP, 0.22, 0, 0.1, 'power2.out'), tw(c.obj.rotation, { z: Math.PI, y: rnd(0.1), duration: 0.22 })]),
+          all([
+            hop(c, V(P.x + m.x, P.z + m.z), REST_Y + (base + i) * STEP, 0.22, i * LAG, 0.1, 'power2.out'),
+            tw(c.obj.rotation, { z: Math.PI, y: m.yaw, duration: 0.22, delay: i * LAG }),
+            tw(c.bend, { y: 0.35, duration: 0.11, delay: i * LAG, yoyo: true, repeat: 1, ease: 'sine.out' }),
+          ]),
         ),
       ),
     );
     out.push(...pk);
-    if (rest.length) await wait(0.085);
+    if (rest.length) await wait(BEAT);
+    else sfx.play('place', { vol: 0.3, rate: 1.3, delay: 0.2 });
   }
   await all(landing);
-  await wait(0.12);
-  await all(out.map((c, i) => all([tw(c.obj.position, { x: C.x, z: C.z, y: REST_Y + i * STEP, duration: 0.22, ease: 'power2.inOut' }), tw(c.obj.rotation, { y: 0, duration: 0.22 })])));
+  await all(
+    out.map((c, i) => {
+      const m = messy(0.012);
+      return all([
+        tw(c.obj.position, { x: C.x + m.x, z: C.z + m.z, y: REST_Y + i * STEP, duration: 0.2, delay: 0.03 + i * 0.0003, ease: 'power2.inOut' }),
+        tw(c.obj.rotation, { y: m.yaw, duration: 0.2, delay: 0.03 }),
+      ]);
+    }),
+  );
   return out;
 }
 
@@ -395,27 +537,31 @@ async function wheel(order: Card3D[], { C, sfx }: Ctx) {
   await all(
     order.map((c, i) => {
       const a = (i / n) * Math.PI * 2;
+      const d = stag(i, 0.008);
       return all([
-        tw(c.obj.position, { x: C.x + R * Math.sin(a), z: C.z - R * Math.cos(a) * 0.92, y: REST_Y + i * 0.0012, duration: 0.34, delay: i * 0.008, ease: 'power2.out' }),
-        tw(c.obj.rotation, { y: -a, duration: 0.34, delay: i * 0.008, ease: 'power2.out' }),
+        tw(c.obj.position, { x: C.x + R * Math.sin(a), z: C.z - R * Math.cos(a) * 0.92, y: REST_Y + i * 0.0012, duration: 0.34, delay: d, ease: 'power3.out' }),
+        tw(c.obj.rotation, { x: 0, y: -a + rnd(0.03), duration: 0.34, delay: d, ease: 'power2.out' }),
       ]);
     }),
   );
   for (let k = 0; k < 5; k++) sfx.play('slide', { vol: 0.25, delay: k * 0.1, rate: 1.25 });
-  await all(order.map((c, i) => turn(c, 0, 0.28, i * 0.009, 0.25)));
-  await wait(0.18);
+  await all(order.map((c, i) => turn(c, 0, 0.28, stag(i, 0.009), 0.25)));
+  await glint(order, { tilt: 0.2, dur: 0.14, gap: 0.0015 });
   sfx.play('fan', { vol: 0.8 });
+  sfx.play('place', { vol: 0.4, rate: 1.2, delay: (n - 1) * 0.006 + 0.42 });
   await all(
     order.map((c, i) => {
-      const d = (n - 1 - i) * 0.006;
+      const d = stag(n - 1 - i, 0.006);
+      const y = REST_Y + i * STEP;
+      const m = messy();
       return all([
-        tw(c.obj.position, { x: C.x, z: C.z, duration: 0.42, delay: d, ease: 'power2.in' }),
-        tw(c.obj.position, { y: REST_Y + i * STEP + 0.2, duration: 0.21, delay: d, ease: 'sine.out' }).then(() => tw(c.obj.position, { y: REST_Y + i * STEP, duration: 0.21, ease: 'sine.in' })),
+        tw(c.obj.position, { x: C.x + m.x, z: C.z + m.z, duration: 0.42, delay: d, ease: 'power2.in' }),
+        tw(c.obj.position, { y: y + 0.2, duration: 0.2, delay: d, ease: 'sine.out' }).then(() => tw(c.obj.position, { y, duration: 0.22, ease: 'power2.in' })),
         tw(c.obj.rotation, { y: '-=1.4', z: Math.PI, duration: 0.42, delay: d, ease: 'power2.inOut' }),
       ]);
     }),
   );
-  await all(order.map((c) => tw(c.obj.rotation, { y: 0, duration: 0.12 })));
+  await all(order.map((c) => tw(c.obj.rotation, { y: rnd(0.03), duration: 0.1, ease: 'power2.out' })));
   return order;
 }
 
@@ -430,13 +576,14 @@ async function wash(order: Card3D[], { C, sfx }: Ctx) {
   await all(
     order.map((c, i) => {
       const p = pol[i];
+      const d = stag(i, 0.004);
       return all([
-        tw(c.obj.position, { x: C.x + Math.cos(p.a) * p.r * 1.25, z: C.z + Math.sin(p.a) * p.r * 0.85, y: REST_Y + i * 0.0012, duration: 0.3, delay: i * 0.004, ease: 'power2.out' }),
-        tw(c.obj.rotation, { y: rnd(6), duration: 0.3, delay: i * 0.004 }),
+        tw(c.obj.position, { x: C.x + Math.cos(p.a) * p.r * 1.25, z: C.z + Math.sin(p.a) * p.r * 0.85, y: REST_Y + i * 0.0012, duration: 0.3, delay: d, ease: 'power3.out' }),
+        tw(c.obj.rotation, { x: 0, y: rnd(6), duration: 0.3, delay: d, ease: 'power2.out' }),
       ]);
     }),
   );
-  // two swirls, the second one the other way
+  // two swirls, the second one the other way; each card at its own pace
   for (const dir of [1, -1]) {
     sfx.play('slide', { vol: 0.5, rate: 0.9 });
     sfx.play('slide', { vol: 0.4, rate: 1.1, delay: 0.2 });
@@ -445,27 +592,34 @@ async function wash(order: Card3D[], { C, sfx }: Ctx) {
         const p = pol[i];
         const a = p.a + dir * (0.9 + Math.random() * 0.5);
         const r = Math.max(0.2, Math.min(1.2, p.r + rnd(0.4)));
-        return all([tw(p, { a, r, duration: 0.5, ease: 'sine.inOut', onUpdate: () => place(c, p, i) }), tw(c.obj.rotation, { y: `+=${dir * (0.8 + Math.random())}`, duration: 0.5, ease: 'sine.inOut' })]);
+        const dur = 0.44 + Math.random() * 0.08;
+        return all([
+          tw(p, { a, r, duration: dur, ease: 'sine.inOut', onUpdate: () => place(c, p, i) }),
+          tw(c.obj.rotation, { y: `+=${dir * (0.8 + Math.random())}`, duration: dur, ease: 'sine.inOut' }),
+        ]);
       }),
     );
   }
   // gather into one pile
   const out = [...order].sort(() => Math.random() - 0.5);
   sfx.play('shove', { vol: 0.6 });
+  sfx.play('place', { vol: 0.4, rate: 1.15, delay: 0.36 + 0.18 });
   await all(
-    out.map((c, i) =>
-      all([
-        tw(c.obj.position, { x: C.x, z: C.z, y: REST_Y + i * STEP, duration: 0.36, delay: (i / n) * 0.18, ease: 'power2.inOut' }),
-        tw(c.obj.rotation, { y: 0, duration: 0.36, delay: (i / n) * 0.18 }),
-      ]),
-    ),
+    out.map((c, i) => {
+      const m = messy(0.016);
+      return all([
+        tw(c.obj.position, { x: C.x + m.x, z: C.z + m.z, y: REST_Y + i * STEP, duration: 0.36, delay: (i / n) * 0.18, ease: 'power2.inOut' }),
+        tw(c.obj.rotation, { y: m.yaw, duration: 0.36, delay: (i / n) * 0.18 }),
+      ]);
+    }),
   );
   return out;
 }
 
 // ================================================================= routines
 
-type Move = (order: Card3D[], ctx: Ctx) => Promise<Card3D[]>;
+const charlier1 = charlier(1);
+const charlier2 = charlier(2);
 
 /** Opening shows, about the same length each (≈ five seconds at the show's 1.4× rate). */
 const FULL: Record<string, Move[]> = {
@@ -476,6 +630,13 @@ const FULL: Record<string, Move[]> = {
   overhand: [overhand, riffle, packets, bridge],
   wash: [wash, faro, riffle, bridge],
   cascade: [riffle, waterfall, fan, bridge],
+  // with a bold flourish
+  fountain: [riffle, fountain, bridge],
+  charlier: [charlier1, riffle, packets, bridge],
+  dribble: [faro, dribble, riffle, bridge],
+  pirouette: [riffle, pirouette, fan, bridge],
+  sybil: [riffle, sybil, faro, bridge],
+  longSpring: [longSpring, riffle, waterfall, bridge],
 };
 
 /** Mid-session reshuffles (shorter). */
@@ -498,6 +659,15 @@ const SHOWCASE: Record<string, Move[]> = {
   ribbonSpring: [ribbonWave, spring, faro, bridge],
   fanFaro: [fan, faro, overhand, riffle, bridge],
   wheelWash: [wheel, wash, waterfall, bridge],
+  // the bold ones
+  fountainSybil: [riffle, fountain, sybil, bridge],
+  boomerangs: [fan, boomerang, longSpring, riffle, bridge],
+  twister: [fanWheelFan, tornado, faro, bridge],
+  charlierCuts: [charlier2, sybil, dribble, bridge],
+  armSpread: [armSpread, pirouette, riffle, bridge],
+  aerials: [fountain, tornado, boomerang, pirouette, bridge],
+  longSprings: [longSpring, dribble, fanWheelFan, riffle, bridge],
+  showtime: [riffle, charlier1, boomerang, armSpread, bridge],
 };
 const TITLE: Record<string, Move[]> = { ...FULL, ...QUICK, ...SHOWCASE };
 
@@ -516,8 +686,8 @@ export const SHUFFLE_ROUTINES = { full: Object.keys(FULL), quick: Object.keys(QU
 
 /**
  * The opening flourish of every table: the deck arrives, a randomly chosen cardistry routine
- * plays (never the same one twice in a row) and the deck goes into the deck box.
- * Tapping the screen speeds it up.
+ * plays (never the same one twice in a row), the deck squares itself with a couple of taps and
+ * goes into the deck box. Tapping the screen speeds it up.
  */
 export async function shuffleShow(ctx: ShuffleCtx, o: ShuffleOpts = {}): Promise<Card3D[] | void> {
   const { stage, table, cards, sfx, hud } = ctx;
@@ -545,7 +715,7 @@ export async function shuffleShow(ctx: ShuffleCtx, o: ShuffleOpts = {}): Promise
     });
 
   try {
-    const mctx: Ctx = { C, sfx };
+    const mctx: Ctx = { C, sfx: new ShowSfx(sfx) };
     let order = deck;
     if (!o.quick) {
       // the deck slides in from the dealer
@@ -556,7 +726,12 @@ export async function shuffleShow(ctx: ShuffleCtx, o: ShuffleOpts = {}): Promise
     } else stackAt(deck, C);
 
     const routine = o.title ? pick(TITLE, 'title', o.routine) : pick(o.quick ? QUICK : FULL, o.quick ? 'quick' : 'full', o.routine);
-    for (const move of routine) order = await move(order, mctx);
+    for (const move of routine) {
+      order = await move(order, mctx);
+      tidy(order);
+    }
+    // the square-up taps: the deck ends exactly squared at C
+    order = await squareUp(order, mctx);
 
     // the deck is left at a point, or goes into the deck box
     if (o.to instanceof THREE.Vector3) {
