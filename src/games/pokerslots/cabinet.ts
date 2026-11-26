@@ -123,11 +123,15 @@ export class SlotCabinet {
     this.pay = null;
   }
 
-  /** The machine (and its paytable) come in after the opening show. */
+  /**
+   * The machine comes in after the opening show. The hands paytable outside it stays on screen
+   * the whole time (from the moment the table opens until it is left): it only gives a short
+   * glow when the machine lights up.
+   */
   reveal() {
     this.el.classList.add('on');
     gsap.fromTo(this.el, { opacity: 0, y: 24, scale: 0.94 }, { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: 'back.out(1.5)' });
-    if (this.pay) gsap.fromTo(this.pay, { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.5, delay: 0.1, ease: 'power2.out' });
+    if (this.pay) gsap.fromTo(this.pay, { filter: 'brightness(1.6)' }, { filter: 'brightness(1)', duration: 0.7, delay: 0.2, ease: 'power2.out', clearProps: 'filter' });
   }
 
   message(text: string, flash = 0) {
