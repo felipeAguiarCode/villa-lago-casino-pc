@@ -3,7 +3,8 @@ import gsap from 'gsap';
 import { Sfx } from './audio/sfx';
 import { parseCard } from './core/cards';
 import { loadSettings, saveSettings, SPEED_SCALE, type Settings } from './core/settings';
-import { money, REFILL_BELOW, Wallet } from './core/wallet';
+import { money, REFILL_BELOW, START_BALANCE, Wallet } from './core/wallet';
+import { ICONS } from './ui/icons';
 import { BlackjackView } from './games/blackjack/view';
 import { ThreeCardView } from './games/threecard/view';
 import { CaribbeanView } from './games/caribbean/view';
@@ -36,6 +37,16 @@ import { RouletteView } from './games/roulette/view';
 import { PartyBlackjackView } from './games/partybj/view';
 import { CoinFlipView } from './games/coinflip/view';
 import { HorsesView } from './games/horses/view';
+import { PartyUthView } from './games/partyuth/view';
+import { VanunuView } from './games/vanunu/view';
+import { CrapsView } from './games/craps/view';
+import { PartyTrumpView } from './games/partytrump/view';
+import { PartyHorsesView } from './games/partyhorses/view';
+import { PartyStudView } from './games/partystud/view';
+import { Stud7View } from './games/stud7/view';
+import { PokerDiceView } from './games/pokerdice/view';
+import { SuitPokerView } from './games/suitpoker/view';
+import { PartyThreeCardView } from './games/partytcp/view';
 import { RedBlackView } from './games/redblack/view';
 import { PickNumberView } from './games/picknum/view';
 import { GAMES } from './games/registry';
@@ -49,7 +60,10 @@ import { Fx } from './table/fx';
 import { Stage } from './table/stage';
 import { PRINT_SCALE, PRINT_SCALE_FOR, Table } from './table/table';
 import { Decor } from './table/decor';
-import { renderBrandBack, TABLE_DECK, type Brand } from './table/deckBrands';
+import { BRAND_TINT, TABLE_DECK, type Brand } from './table/deckBrands';
+import { renderPatternBack } from './table/backPatterns';
+import { Wind } from './table/wind';
+import { DeckScreen } from './ui/deckMenu';
 import { Hud } from './ui/hud';
 import { GameSelect } from './ui/gameSelect';
 import { TitleScreen } from './ui/title';
@@ -85,23 +99,97 @@ export class App {
   decor!: Decor;
   /** Lobby tile id of the table being played ('' in the lobby). */
   currentId = '';
-  private brandBacks = new Map<Brand, HTMLCanvasElement>();
+  private brandBacks = new Map<string, HTMLCanvasElement>();
 
   /**
    * PC: every table plays with its own deck (src/table/deckBrands.ts): the card backs, the box on
    * the felt and the cards spilling out of it. The house deck follows the card-back setting.
    */
+  /** The table's deck: its brand's box, and card backs in the player's pattern and colour (Deck screen). */
   private applyDeck(id: string) {
     const deck = TABLE_DECK[id] ?? { brand: 'house' as Brand };
-    let back: HTMLCanvasElement | null = null;
-    if (deck.brand === 'house') this.cards.setBack(this.settings.back);
-    else {
-      back = this.brandBacks.get(deck.brand) ?? renderBrandBack(deck.brand);
-      this.brandBacks.set(deck.brand, back);
-      this.cards.setBackCanvas(back);
+    const tint = this.backTintFor(id);
+    const key = `${this.settings.backPattern}|${tint}`;
+    let back = this.brandBacks.get(key);
+    if (!back) {
+      if (this.brandBacks.size >= 6) this.brandBacks.clear();
+      back = renderPatternBack(this.settings.backPattern, tint);
+      this.brandBacks.set(key, back);
     }
-    const img = this.cards.backTexture.image;
-    this.table.setDeck(deck.brand, !!deck.open, back ?? (img instanceof HTMLCanvasElement ? img : null));
+    this.cards.setBackCanvas(back);
+    this.table.setDeck(deck.brand, !!deck.open, back);
+  }
+
+  /** The card backs' colour at a table: the player's choice, or the table deck's own colour. */
+  private backTintFor(id: string) {
+    if (this.settings.backTint !== 'table') return this.settings.backTint;
+    return BRAND_TINT[(TABLE_DECK[id] ?? { brand: 'house' as Brand }).brand];
+  }
+
+  // ------------------------------------------------------------------ bankroll: reset and game over
+  /** The smallest bet anywhere in the casino: below it, with nothing on the felt, the game is over. */
+  private static readonly MIN_BET = 5;
+  private brokeTicks = 0;
+  private gameOverOn = false;
+
+  private checkBroke() {
+    const g = this.current;
+    const broke =
+      !!g && !this.gameOverOn && !this.switching && !this.opening && !g.inRound && this.wallet.balance < App.MIN_BET && (g.stakeOnTable?.() ?? 0) <= 0;
+    // two checks in a row, so a payout still landing never counts as broke
+    this.brokeTicks = broke ? this.brokeTicks + 1 : 0;
+    if (this.brokeTicks >= 2) {
+      this.brokeTicks = 0;
+      void this.gameOver();
+    }
+  }
+
+  /** Out of chips: back to Game Select, GAME OVER, and a new game with the starting bankroll. */
+  private async gameOver() {
+    this.gameOverOn = true;
+    this.sfx.lose();
+    await this.showLobby();
+    const el = document.createElement('section');
+    el.className = 'gameover live';
+    el.innerHTML = `
+      <div class="go-box">
+        <h1 class="go-title">GAME OVER</h1>
+        <p class="go-text">${t('go.text')}</p>
+        <button class="go-btn live">${ICONS.redo}<span>${t('go.new', { n: money(START_BALANCE) })}</span></button>
+      </div>`;
+    el.addEventListener('click', (e) => e.stopPropagation());
+    this.frame.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('show'));
+    await new Promise<void>((done) => {
+      el.querySelector<HTMLButtonElement>('.go-btn')!.onclick = () => done();
+    });
+    this.sfx.click();
+    this.startOver();
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 400);
+    this.gameOverOn = false;
+  }
+
+  /** A new game: the starting bankroll and level 1 (trophies are kept). */
+  private startOver() {
+    this.wallet.reset();
+    this.trophies.balance(this.wallet.balance);
+    this.lobby.refresh();
+    this.sfx.win();
+    this.hud.toast(t('go.started', { n: money(START_BALANCE) }), 2600);
+  }
+
+  private async confirmReset() {
+    const pick = await this.hud.prompt(t('rs.title'), t('rs.text', { n: money(START_BALANCE) }), [
+      { id: 'no', label: t('rs.cancel'), color: 'red', icon: 'close' },
+      { id: 'yes', label: t('rs.confirm'), color: 'green', icon: 'redo' },
+    ]);
+    if (pick === 'yes') this.startOver();
+  }
+
+  private openDeck() {
+    this.sfx.click();
+    new DeckScreen(this.frame, this.settings, this.backTintFor(this.currentId || 'lobby'), (s) => this.applySettings(s), () => this.sfx.click()).open();
   }
   ctx!: GameCtx;
   readonly games = new Map<string, GameView>();
@@ -109,7 +197,7 @@ export class App {
   private showcase: Card3D[] = [];
   private switching = false;
   private opening = false;
-  private backColor = this.settings.back;
+  private backKey = '';
   private lang = '';
 
   async boot(progress: (f: number, msg: string) => void) {
@@ -210,6 +298,16 @@ export class App {
     this.games.set('partybj', new PartyBlackjackView(this.ctx));
     this.games.set('coinflip', new CoinFlipView(this.ctx));
     this.games.set('horses', new HorsesView(this.ctx));
+    this.games.set('partyuth', new PartyUthView(this.ctx));
+    this.games.set('vanunu', new VanunuView(this.ctx));
+    this.games.set('craps', new CrapsView(this.ctx));
+    this.games.set('partytrump', new PartyTrumpView(this.ctx));
+    this.games.set('partyhorses', new PartyHorsesView(this.ctx));
+    this.games.set('partystud', new PartyStudView(this.ctx));
+    this.games.set('stud7', new Stud7View(this.ctx));
+    this.games.set('pokerdice', new PokerDiceView(this.ctx));
+    this.games.set('suitpoker', new SuitPokerView(this.ctx));
+    this.games.set('partytcp', new PartyThreeCardView(this.ctx));
     this.games.set('redblack', new RedBlackView(this.ctx));
     this.games.set('picknum', new PickNumberView(this.ctx));
 
@@ -225,6 +323,8 @@ export class App {
         void this.openGame(id);
       },
       onTrophies: (game) => this.openTrophies(game),
+      onDeck: () => this.openDeck(),
+      onReset: () => void this.confirmReset(),
       onSettings: () => this.openSettings(),
       onRefill: () => this.refill(),
       onFullscreen: () => {
@@ -255,6 +355,8 @@ export class App {
       else this.hud.modal(t('credits.title'), creditsHtml());
     };
     this.applySettings(this.settings);
+    // PC: an empty bankroll ends the game (checked between hands)
+    window.setInterval(() => this.checkBroke(), 700);
     progress(1, t('load.ready'));
     this.cards.warm([0, 12, 25, 38, 9, 10, 11].map((c) => c));
   }
@@ -278,6 +380,7 @@ export class App {
 
   private titleOn = false;
   private titleCards: Card3D[] = [];
+  private titleWind: Wind | null = null;
   /** Resolves when the title screen's shuffle loop has put its deck away. */
   private titleDone: Promise<void> = Promise.resolve();
 
@@ -300,23 +403,54 @@ export class App {
       void dealCard(c, table.shoeMouth(), table.shoeYaw, { pos, yaw: (Math.random() - 0.5) * 1.4 }, { faceUp: true, onLand: () => this.sfx.play('place', { vol: 0.3 }) });
       await wait(0.09);
     }
+    // a breeze: now and then a gust lifts a few cards and blows them across the felt
+    const flipping = new Set<Card3D>();
+    const deckAt = stage.screenToTable(0.5, 0.66);
+    this.titleWind = new Wind({
+      stage,
+      cards: () => this.titleCards,
+      busy: (c) => flipping.has(c),
+      spawn: () => {
+        if (!this.titleOn || this.titleCards.length >= 15) return null;
+        const c = cards.create(rnd());
+        this.titleCards.push(c);
+        return c;
+      },
+      onLost: (c) => {
+        this.titleCards = this.titleCards.filter((x) => x !== c);
+        cards.destroy(c);
+      },
+      onGust: (s) => this.sfx.whoosh(0.5 + s * 0.6),
+      onTouch: (v) => {
+        if (v > 0.5) this.sfx.play('slide', { vol: Math.min(0.32, 0.08 + v * 0.06), rate: 0.9 + Math.random() * 0.3 });
+      },
+      avoid: () => ({ x: deckAt.x, z: deckAt.z, r: 1.7 }),
+    });
+    this.titleWind.start();
     // the cards "blink": one turns over and comes back up as another card
     void (async () => {
       while (this.titleOn) {
         await wait(0.7 + Math.random() * 0.6);
-        const c = this.titleCards[Math.floor(Math.random() * this.titleCards.length)];
-        if (!this.titleOn || !c) break;
+        const free = this.titleCards.filter((c) => !this.titleWind?.isFlying(c));
+        const c = free[Math.floor(Math.random() * free.length)];
+        if (!this.titleOn) break;
+        if (!c) continue;
+        flipping.add(c);
         await flipCard(c, { dur: 0.35, lift: 0.25, onMid: () => c.setCard(rnd()) });
+        flipping.delete(c);
       }
     })();
     await wait(0.4);
+    // cardistry: every routine in turn, the long showcases included, never the same twice running
     while (this.titleOn) {
-      await shuffleShow(this.ctx, { at: [0.5, 0.66], toast: false, quick: true });
+      await shuffleShow(this.ctx, { at: [0.5, 0.66], toast: false, quick: true, title: true });
       await wait(0.25);
     }
   }
 
   private async clearTitleCards() {
+    this.titleWind?.stop();
+    this.titleWind = null;
     const list = this.titleCards;
     this.titleCards = [];
     if (!list.length) return;
@@ -329,7 +463,9 @@ export class App {
   }
 
   private refill() {
-    const add = this.wallet.refill();
+    // chips already on a table count too (craps takes them from the rack as they are bet)
+    const onTable = this.current?.stakeOnTable?.() ?? 0;
+    const add = this.wallet.balance + onTable >= REFILL_BELOW ? 0 : this.wallet.refill();
     if (add > 0) {
       this.trophies.refill(this.wallet.balance);
       this.sfx.win();
@@ -354,18 +490,25 @@ export class App {
     this.sfx.setVolume(s.volume, s.muted);
     if (gsap.globalTimeline.timeScale() !== SPEED_SCALE[s.speed]) gsap.globalTimeline.timeScale(SPEED_SCALE[s.speed]);
     this.stage.setQuality(s.quality);
-    if (s.back !== this.backColor) {
-      this.backColor = s.back;
-      // PC: the house deck takes the new back; branded tables keep their own deck
-      this.applyDeck(this.currentId || 'lobby');
+    const backKey = `${s.backPattern}|${s.backTint}`;
+    if (backKey !== this.backKey) {
+      // the backs of every card on the table change at once
+      if (this.backKey) this.applyDeck(this.currentId || 'lobby');
+      this.backKey = backKey;
     }
   }
 
   private openSettings() {
-    openSettings(this.hud, this.settings, (s) => this.applySettings(s), () => {
-      this.wallet.reset();
-      this.hud.toast(t('toast.resetDone'));
-    });
+    openSettings(
+      this.hud,
+      this.settings,
+      (s) => this.applySettings(s),
+      () => {
+        this.wallet.reset();
+        this.hud.toast(t('toast.resetDone'));
+      },
+      () => this.openDeck(),
+    );
   }
 
   private openRules() {

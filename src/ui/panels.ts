@@ -1,6 +1,5 @@
 import { getLang, t } from '../core/i18n';
-import type { BackColor, Quality, Settings, Speed } from '../core/settings';
-import { BACK_COLORS } from '../table/cardFaces';
+import type { Quality, Settings, Speed } from '../core/settings';
 import type { Hud } from './hud';
 import { ICONS } from './icons';
 
@@ -36,9 +35,9 @@ function row(icon: string, label: string, control: HTMLElement): HTMLElement {
   return r;
 }
 
-const swatch = (c: BackColor) => `<i class="swatch" style="background:linear-gradient(135deg, ${BACK_COLORS[c][0]}, ${BACK_COLORS[c][1]})"></i>`;
 
-export function openSettings(hud: Hud, s: Settings, apply: (s: Settings) => void, resetWallet: () => void) {
+export function openSettings(hud: Hud, s: Settings, apply: (s: Settings) => void, resetWallet: () => void, openDeck?: () => void) {
+  let closeModal = () => {};
   const body = document.createElement('div');
   const vol = document.createElement('input');
   vol.type = 'range';
@@ -99,22 +98,10 @@ export function openSettings(hud: Hud, s: Settings, apply: (s: Settings) => void
         },
       ),
     ),
-    row(
-      ICONS.deal,
-      t('settings.back'),
-      seg<BackColor>(
-        [
-          ['bordo', swatch('bordo'), 'Burgundy'],
-          ['marinho', swatch('marinho'), 'Navy'],
-          ['esmeralda', swatch('esmeralda'), 'Emerald'],
-        ],
-        s.back,
-        (v) => {
-          s.back = v;
-          apply(s);
-        },
-      ),
-    ),
+    row(ICONS.deal, t('settings.back'), deckButton(() => {
+      closeModal();
+      openDeck?.();
+    })),
     row(
       ICONS.bulb,
       t('settings.hints'),
@@ -167,7 +154,16 @@ export function openSettings(hud: Hud, s: Settings, apply: (s: Settings) => void
   ar.className = 'actions-row';
   ar.appendChild(reset);
   body.appendChild(ar);
-  hud.modal(t('settings.title'), body);
+  closeModal = hud.modal(t('settings.title'), body);
+}
+
+/** PC: the card backs are chosen on the Deck screen (pattern and colour). */
+function deckButton(open: () => void): HTMLElement {
+  const b = document.createElement('button');
+  b.className = 'chip-btn deck-open live';
+  b.textContent = t('settings.deckBtn');
+  b.onclick = open;
+  return b;
 }
 
 const CREDITS_EN = `

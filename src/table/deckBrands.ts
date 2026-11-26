@@ -11,6 +11,17 @@ import { FACE_H, FACE_W } from './cardFaces';
  */
 export type Brand = 'house' | 'veloce' | 'series' | 'stallion' | 'salon' | 'canarinho';
 
+/** The card back colourway (src/table/backPatterns.ts) of each brand's deck, used when the player keeps
+ * the tables' own colours. The backs themselves are pattern only. */
+export const BRAND_TINT: Record<Brand, string> = {
+  house: 'burgundy',
+  veloce: 'crimson',
+  series: 'onyx',
+  stallion: 'royal',
+  salon: 'emerald',
+  canarinho: 'canary',
+};
+
 export interface BrandDef {
   title: string;
   sub: string;
@@ -44,6 +55,13 @@ export const TABLE_DECK: Record<string, { brand: Brand; open?: boolean }> = {
   showdown: { brand: 'series' },
   thb: { brand: 'series', open: true },
   uth: { brand: 'series' },
+  partyuth: { brand: 'series' },
+  partytcp: { brand: 'series' },
+  suitpoker: { brand: 'salon' },
+  stud7: { brand: 'series' },
+  partystud: { brand: 'series' },
+  pokerdice: { brand: 'stallion' },
+  vanunu: { brand: 'veloce' },
   holdem3: { brand: 'series' },
   threecard: { brand: 'series', open: true },
   tcpfaceup: { brand: 'series' },

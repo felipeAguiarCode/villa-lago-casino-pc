@@ -12,11 +12,15 @@ export interface Settings {
   speed: Speed;
   quality: Quality;
   back: BackColor;
+  /** PC: card back pattern id (src/table/backPatterns.ts). */
+  backPattern: string;
+  /** PC: card back colourway id, or 'table' for each table's own deck colour. */
+  backTint: string;
   hints: boolean;
   lang: Lang;
 }
 
-const DEFAULTS: Settings = { volume: 0.8, muted: false, speed: 'normal', quality: 'high', back: 'bordo', hints: true, lang: 'en' };
+const DEFAULTS: Settings = { volume: 0.8, muted: false, speed: 'normal', quality: 'high', back: 'bordo', backPattern: 'lattice', backTint: 'table', hints: true, lang: 'en' };
 
 export function loadSettings(): Settings {
   try {

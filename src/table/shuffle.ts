@@ -26,6 +26,8 @@ export interface ShuffleOpts {
   routine?: string;
   /** False: no "shuffling · tap to skip" toast and no tap to speed up (the title screen's loop). */
   toast?: boolean;
+  /** The title screen: any routine, including the long showcase combinations. */
+  title?: boolean;
 }
 
 const STEP = 0.0026;
@@ -485,9 +487,23 @@ const QUICK: Record<string, Move[]> = {
   cascade: [riffle, waterfall],
 };
 
-const last = { full: '', quick: '' };
+/** Title-screen showcases: longer combinations of every flourish, on top of the routines above. */
+const SHOWCASE: Record<string, Move[]> = {
+  grand: [ribbonWave, fan, wheel, riffle, bridge],
+  springs: [spring, waterfall, spring, bridge],
+  weave: [faro, faro, waterfall, fan, bridge],
+  washFan: [wash, fan, riffle, bridge],
+  packetWheel: [packets, wheel, spring, bridge],
+  overCascade: [overhand, waterfall, riffle, bridge],
+  ribbonSpring: [ribbonWave, spring, faro, bridge],
+  fanFaro: [fan, faro, overhand, riffle, bridge],
+  wheelWash: [wheel, wash, waterfall, bridge],
+};
+const TITLE: Record<string, Move[]> = { ...FULL, ...QUICK, ...SHOWCASE };
 
-function pick(set: Record<string, Move[]>, kind: 'full' | 'quick', forced?: string): Move[] {
+const last = { full: '', quick: '', title: '' };
+
+function pick(set: Record<string, Move[]>, kind: 'full' | 'quick' | 'title', forced?: string): Move[] {
   if (forced && set[forced]) return set[forced];
   const names = Object.keys(set).filter((k) => k !== last[kind]);
   const name = names[Math.floor(Math.random() * names.length)];
@@ -496,7 +512,7 @@ function pick(set: Record<string, Move[]>, kind: 'full' | 'quick', forced?: stri
 }
 
 /** Names of the routines (testing). */
-export const SHUFFLE_ROUTINES = { full: Object.keys(FULL), quick: Object.keys(QUICK) };
+export const SHUFFLE_ROUTINES = { full: Object.keys(FULL), quick: Object.keys(QUICK), title: Object.keys(TITLE) };
 
 /**
  * The opening flourish of every table: the deck arrives, a randomly chosen cardistry routine
@@ -539,7 +555,8 @@ export async function shuffleShow(ctx: ShuffleCtx, o: ShuffleOpts = {}): Promise
       await all(deck.map((c) => tw(c.obj.position, { z: C.z, duration: 0.42, ease: 'power3.out' })));
     } else stackAt(deck, C);
 
-    for (const move of pick(o.quick ? QUICK : FULL, o.quick ? 'quick' : 'full', o.routine)) order = await move(order, mctx);
+    const routine = o.title ? pick(TITLE, 'title', o.routine) : pick(o.quick ? QUICK : FULL, o.quick ? 'quick' : 'full', o.routine);
+    for (const move of routine) order = await move(order, mctx);
 
     // the deck is left at a point, or goes into the deck box
     if (o.to instanceof THREE.Vector3) {

@@ -1,8 +1,7 @@
 import { t } from '../core/i18n';
-import { emblemDataURL } from './emblem';
 
 /**
- * Title screen of the PC edition: the house emblem and the game's name over the lobby table,
+ * Title screen of the PC edition: the game's name over the lobby table,
  * waiting for Enter (or a click). Resolves when the player starts.
  */
 export class TitleScreen {
@@ -14,7 +13,6 @@ export class TitleScreen {
     el.className = 'live';
     el.innerHTML = `
       <div class="ti-box">
-        <img class="ti-emblem" alt="" src="${emblemDataURL(320)}">
         <div class="ti-poker gold-text">POKER</div>
         <div class="ti-against"><i></i><span>AGAINST THE HOUSE</span><i></i></div>
         <div class="ti-sub">${t('title.sub')}</div>

@@ -42,6 +42,16 @@ export const FELTS = {
   partybj: '#143a78',
   coinflip: '#163d5c',
   horses: '#2f6b2c',
+  partyuth: '#0e4a4c',
+  vanunu: '#1f4a3f',
+  craps: '#0f5b3c',
+  partytrump: '#2c1f3a',
+  partyhorses: '#245f35',
+  partystud: '#3a2466',
+  stud7: '#33461f',
+  pokerdice: '#11553f',
+  suitpoker: '#0c3f52',
+  partytcp: '#3a1d6e',
 } as const;
 export type FeltKey = keyof typeof FELTS;
 

@@ -2,6 +2,7 @@ import type { Card, Shoe } from '../../core/cards';
 import type { Rng } from '../../core/rng';
 import { BlackjackRound, bjValue, handValue, isNatural, RULES, type Actions, type BJEvent, type BJHand, type Outcome } from '../blackjack/rules';
 import { basicStrategy, type Move } from '../blackjack/strategy';
+import { mindsetStake, type AiMemory, type Mindset } from './mindset';
 
 /**
  * Party Blackjack: five seats against one dealer (four of them AI players with fictional chips).
@@ -16,8 +17,13 @@ import { basicStrategy, type Move } from '../blackjack/strategy';
  * RTP for the player with basic strategy ≈ 99.6% (6 decks, S17, DAS, 3:2, resplit to 4 hands,
  * one card to split Aces, no surrender, peek; house edge ≈ 0.4%): a 2,000,000-round seeded
  * simulation gave 99.65% ± 0.07%. The other seats don't change it (the cards are exchangeable).
- * The regulars, same simulation: bookish 99.7%, daring 95.2%, cautious 92.0%, wildcard 91.2%.
- * A shorter seeded run is in tests/partybj.test.ts.
+ *
+ * The regulars play each hand in a hidden mindset (mindset.ts) drawn when the hand starts; see
+ * aiMove and aiBet. Return per unit bet of each mindset, seeded simulations of 1,800,000 rounds at a
+ * table with one seat per mindset (each staking by mindsetStake) and a flat basic-strategy seat,
+ * the shoe cut at 80% ± 4%: calculated 101.0% (Hi-Lo with the index plays and a 10–120 spread),
+ * hybrid 99.6%, aggressive 99.0%, conservative 98.7%, hunch 91.2%; flat basic strategy 99.5%
+ * there. A 300,000-round run is in tests/partybj.test.ts.
  */
 export const PB = {
   decks: RULES.decks,
@@ -28,18 +34,19 @@ export const PB = {
   aiMax: 200,
 };
 
+/** A regular's hidden temperament: it only weights the mindsets they draw (mindset.ts). */
 export type Style = 'bookish' | 'cautious' | 'daring' | 'wildcard';
 
 export interface AiProfile {
   name: string;
   style: Style;
-  /** Chips the player sits down (and buys in again) with. */
+  /** Chips the player sits down with. */
   bank: number;
 }
 
 /**
- * The four regulars, by their place at the table from the player's left to right: third base and
- * the seat next to it, then the two seats nearer first base (the dealer's left, who acts first).
+ * Four regulars of the old fixed line-up, kept for older callers and tests: the tables now seat
+ * players from roster.ts at random.
  */
 export const REGULARS: AiProfile[] = [
   { name: 'Ines', style: 'bookish', bank: 2400 },
@@ -48,58 +55,219 @@ export const REGULARS: AiProfile[] = [
   { name: 'Roxie', style: 'daring', bank: 3000 },
 ];
 
+// --------------------------------------------------------------------------- card counting
+
+/** Hi-Lo tag of a card: 2–6 count +1, 7–9 count 0, tens and Aces count −1. */
+export const hiLoTag = (c: Card) => {
+  const v = bjValue(c);
+  return v <= 6 ? 1 : v >= 10 ? -1 : 0;
+};
+
+/**
+ * The Hi-Lo count of one shoe: every card seen face up at the table since the last shuffle (the
+ * regulars all watch the same cards, so a table keeps one). The true count is the running count
+ * per deck not yet seen.
+ */
+export class HiLo {
+  running = 0;
+  seen = 0;
+
+  constructor(readonly decks: number = PB.decks) {}
+
+  /** A fresh shoe. */
+  reset() {
+    this.running = 0;
+    this.seen = 0;
+  }
+
+  see(cards: readonly Card[]) {
+    for (const c of cards) {
+      this.running += hiLoTag(c);
+      this.seen++;
+    }
+  }
+
+  /** Decks still unseen (the shoe and the dealer's hole card), never under half a deck. */
+  get decksLeft() {
+    return Math.max(0.5, (this.decks * 52 - this.seen) / 52);
+  }
+
+  get trueCount() {
+    return this.running / this.decksLeft;
+  }
+}
+
+/** The cards a batch of table events turns face up (the hole card when it is flipped over). */
+export function shownCards(evs: readonly PEvent[], dealer: readonly Card[]): Card[] {
+  const out: Card[] = [];
+  for (const e of evs) {
+    if (e.t === 'card') out.push(e.card);
+    else if (e.t === 'dealer' && e.faceUp) out.push(e.card);
+    else if (e.t === 'flipHole' && dealer[1] !== undefined) out.push(dealer[1]);
+  }
+  return out;
+}
+
+/** The counter's read of the next hand for its stake (−1..1): one unit at TC 1, spread from there. */
+export const countEdge = (tc: number) => Math.max(-1, Math.min(1, (tc - 1) / 4));
+
 // --------------------------------------------------------------------------- AI players
 
-/** How much an AI player bets this hand: 10–200 in steps of 5, by style, never more than it has. */
-export function aiBet(style: Style, chips: number, rng: Rng): number {
-  const pick = (lo: number, hi: number, step: number) => lo + step * rng(Math.floor((hi - lo) / step) + 1);
-  let bet: number;
-  switch (style) {
-    case 'bookish':
-      bet = pick(25, 100, 25);
-      break;
-    case 'cautious':
-      bet = pick(10, 50, 5);
-      break;
-    case 'daring':
-      bet = pick(50, 200, 25);
-      break;
-    default:
-      bet = pick(10, 200, 5);
-  }
-  bet = Math.min(bet, PB.aiMax, Math.floor(chips / 5) * 5);
+/** What a regular knows when deciding: the table's true count and their own streak. */
+export interface AiRead {
+  tc: number;
+  /** +n after n wins in a row, −n after n losses (AiMemory.streak). */
+  streak: number;
+}
+
+/**
+ * How much a regular bets this hand in its mindset (mindsetStake): 10–200 in steps of 5, never
+ * more than it has. Only the calculated mindset reads the true count `tc`.
+ */
+export function aiBet(m: Mindset, chips: number, mem: AiMemory, tc: number, rng: Rng): number {
+  const bet = mindsetStake(m, { chips, min: PB.aiMin, max: PB.aiMax, step: 5, mem, edge: countEdge(tc) }, rng);
   return bet >= PB.aiMin ? bet : 0;
 }
+
+/** A regular who can't cover the minimum bet leaves the table. */
+export const isBroke = (chips: number) => chips < PB.aiMin;
 
 /** Pair of the same blackjack value (a 10 and a King split like the Blackjack table allows). */
 const isPair = (cards: Card[]) => cards.length === 2 && bjValue(cards[0]) === bjValue(cards[1]);
 
-/**
- * One decision of an AI player. Always a legal move for `can` (the seat round's actions).
- * - bookish: perfect basic strategy;
- * - cautious: stands on 12 or more, never doubles or splits;
- * - daring: hits to 17, doubles every 8–11 and soft 13–19, splits every pair but 5s and tens;
- * - wildcard: basic strategy, but one decision in four is a random other move (never hitting a hard 19+).
- */
-export function aiMove(style: Style, cards: Card[], dealerUp: Card, can: Actions, rng: Rng): Move {
+/** An index play: with a hard `total` against `up` (2..11), `move` once the true count reaches `tc`. */
+export interface IndexPlay {
+  total: number;
+  up: number;
+  move: Move;
+  tc: number;
+  /** ge: at TC ≥ tc · le: at TC ≤ tc · lt: at TC < tc. */
+  at: 'ge' | 'le' | 'lt';
+}
+
+/** The counter's main deviations from basic strategy (Illustrious 18 style, S17, no insurance). */
+export const INDEX_PLAYS: IndexPlay[] = [
+  { total: 16, up: 10, move: 'stand', tc: 0, at: 'ge' },
+  { total: 15, up: 10, move: 'stand', tc: 4, at: 'ge' },
+  { total: 12, up: 3, move: 'stand', tc: 2, at: 'ge' },
+  { total: 12, up: 2, move: 'stand', tc: 3, at: 'ge' },
+  { total: 16, up: 9, move: 'stand', tc: 5, at: 'ge' },
+  { total: 11, up: 11, move: 'double', tc: 1, at: 'ge' },
+  { total: 10, up: 10, move: 'double', tc: 4, at: 'ge' },
+  { total: 10, up: 11, move: 'double', tc: 4, at: 'ge' },
+  { total: 9, up: 2, move: 'double', tc: 1, at: 'ge' },
+  { total: 9, up: 7, move: 'double', tc: 3, at: 'ge' },
+  { total: 13, up: 2, move: 'hit', tc: -1, at: 'le' },
+  { total: 12, up: 4, move: 'hit', tc: 0, at: 'lt' },
+  { total: 12, up: 5, move: 'hit', tc: -2, at: 'le' },
+  { total: 12, up: 6, move: 'hit', tc: -1, at: 'le' },
+  { total: 13, up: 3, move: 'hit', tc: -2, at: 'le' },
+];
+
+/** Splitting tens, by dealer up card: against a 5 at TC ≥ 5, against a 6 at TC ≥ 4. */
+const TEN_SPLITS: Partial<Record<number, number>> = { 5: 5, 6: 4 };
+
+const reached = (ix: IndexPlay, tc: number) => (ix.at === 'ge' ? tc >= ix.tc : ix.at === 'le' ? tc <= ix.tc : tc < ix.tc);
+
+/** The move if it is allowed, else the nearest one that is. */
+function legal(m: Move, can: Actions, cards: Card[], up: Card): Move {
+  if (can[m]) return m;
+  if (m === 'split') return legal(basicStrategy(cards, up, can.double, false), can, cards, up);
+  return m === 'double' && can.hit ? 'hit' : 'stand';
+}
+
+const book = (cards: Card[], up: Card, can: Actions) => legal(basicStrategy(cards, up, can.double, can.split), can, cards, up);
+
+/** Basic strategy with the counter's index plays at true count `tc`. */
+export function countedMove(cards: Card[], up: Card, can: Actions, tc: number): Move {
+  const u = bjValue(up);
+  const tens = TEN_SPLITS[u];
+  if (can.split && isPair(cards) && bjValue(cards[0]) === 10 && tens !== undefined && tc >= tens) return 'split';
+  const b = book(cards, up, can);
+  if (b === 'split') return b;
   const v = handValue(cards);
-  switch (style) {
-    case 'bookish':
-      return basicStrategy(cards, dealerUp, can.double, can.split);
-    case 'cautious':
-      return v.total >= 12 || !can.hit ? 'stand' : 'hit';
-    case 'daring': {
-      if (can.split && isPair(cards) && bjValue(cards[0]) !== 10 && bjValue(cards[0]) !== 5) return 'split';
-      if (can.double && cards.length === 2 && (v.soft ? v.total >= 13 && v.total <= 19 : v.total >= 8 && v.total <= 11)) return 'double';
-      return v.total < 17 && can.hit ? 'hit' : 'stand';
+  if (!v.soft) {
+    const ix = INDEX_PLAYS.find((i) => i.total === v.total && i.up === u);
+    if (ix && reached(ix, tc) && can[ix.move]) return ix.move;
+  }
+  return b;
+}
+
+/**
+ * A close spot: an index play within one true count of its index (splitting tens included), or a
+ * soft double. `press` is the bolder move and `tight` the safer one.
+ */
+export function closeSpot(cards: Card[], up: Card, can: Actions, tc: number): { press: Move; tight: Move } | null {
+  const u = bjValue(up);
+  const v = handValue(cards);
+  if (can.split && isPair(cards)) {
+    const tens = TEN_SPLITS[u];
+    if (bjValue(cards[0]) === 10 && tens !== undefined) return Math.abs(tc - tens) <= 1 ? { press: 'split', tight: 'stand' } : null;
+    if (basicStrategy(cards, up, can.double, true) === 'split') return null;
+  }
+  if (!v.soft) {
+    const ix = INDEX_PLAYS.find((i) => i.total === v.total && i.up === u);
+    if (!ix || Math.abs(tc - ix.tc) > 1 || !can.hit) return null;
+    if (ix.move === 'double') return can.double ? { press: 'double', tight: 'hit' } : null;
+    return { press: 'hit', tight: 'stand' };
+  }
+  if (can.double && basicStrategy(cards, up, true, false) === 'double') return { press: 'double', tight: legal(basicStrategy(cards, up, false, false), can, cards, up) };
+  return null;
+}
+
+/**
+ * One decision of a regular in this hand's mindset. Always a legal move for `can` (the seat
+ * round's actions).
+ * - calculated: counts cards — basic strategy with the index plays at the table's true count;
+ * - aggressive: basic strategy that presses: doubles every soft 13–18 against 2–6 and every 9–11
+ *   against anything, splits 2s, 3s, 6s and 7s against 2–7 and 9s always, hits 12 against 2–3;
+ * - conservative: never doubles a soft hand, doubles only 10–11 against 2–9, splits only Aces and
+ *   8s, stands on 12+ against 2–6 and on 15–16 against 7–10 (it costs, but it rarely busts);
+ * - hybrid: the counter's move, except on close spots, where it presses after two wins or more in a
+ *   row and plays safe after two losses or more;
+ * - hunch: basic strategy, but one decision in four is a random other legal move (never hitting or
+ *   doubling a hard 19+).
+ */
+export function aiMove(m: Mindset, cards: Card[], dealerUp: Card, can: Actions, read: AiRead, rng: Rng): Move {
+  const v = handValue(cards);
+  const u = bjValue(dealerUp);
+  switch (m) {
+    case 'calculated':
+      return countedMove(cards, dealerUp, can, read.tc);
+    case 'aggressive': {
+      if (can.split && isPair(cards)) {
+        const p = bjValue(cards[0]);
+        if ([2, 3, 6, 7].includes(p) && u <= 7) return 'split';
+        if (p === 9) return 'split';
+      }
+      if (can.double) {
+        if (v.soft && v.total >= 13 && v.total <= 18 && u <= 6) return 'double';
+        if (!v.soft && v.total >= 9 && v.total <= 11) return 'double';
+      }
+      if (!v.soft && v.total === 12 && u <= 3 && can.hit) return 'hit';
+      return book(cards, dealerUp, can);
     }
-    case 'wildcard': {
-      const book = basicStrategy(cards, dealerUp, can.double, can.split);
-      if (rng(4) !== 0) return book;
+    case 'conservative': {
+      if (can.split && isPair(cards) && (bjValue(cards[0]) === 11 || bjValue(cards[0]) === 8)) return 'split';
+      if (!v.soft) {
+        if (can.double && (v.total === 10 || v.total === 11) && u <= 9) return 'double';
+        if (v.total >= 12 && u <= 6) return 'stand';
+        if ((v.total === 15 || v.total === 16) && u >= 7 && u <= 10) return 'stand';
+      }
+      return legal(basicStrategy(cards, dealerUp, false, false), can, cards, dealerUp);
+    }
+    case 'hybrid': {
+      const spot = Math.abs(read.streak) >= 2 ? closeSpot(cards, dealerUp, can, read.tc) : null;
+      if (spot) return read.streak > 0 ? spot.press : spot.tight;
+      return countedMove(cards, dealerUp, can, read.tc);
+    }
+    case 'hunch': {
+      const b = book(cards, dealerUp, can);
+      if (rng(4) !== 0) return b;
       const others = (['hit', 'stand', 'double', 'split'] as Move[]).filter(
-        (m) => m !== book && can[m] && !(!v.soft && v.total >= 19 && (m === 'hit' || m === 'double')),
+        (x) => x !== b && can[x] && !(!v.soft && v.total >= 19 && (x === 'hit' || x === 'double')),
       );
-      return others.length ? others[rng(others.length)] : book;
+      return others.length ? others[rng(others.length)] : b;
     }
   }
 }
@@ -108,8 +276,10 @@ export function aiMove(style: Style, cards: Card[], dealerUp: Card, can: Actions
 
 export interface SeatIn {
   bet: number;
-  /** null: the player's own seat. */
-  style: Style | null;
+  /** The regular's mindset this hand; null: the player's own seat. */
+  mind: Mindset | null;
+  /** The regular's streak going into the hand (the hybrid mindset leans on it). */
+  streak?: number;
 }
 
 type SeatEv = Extract<BJEvent, { t: 'split' | 'double' | 'active' | 'handDone' }>;
@@ -159,7 +329,7 @@ export function settleHand(h: BJHand, dealer: Card[]): { outcome: Outcome; ret: 
 
 export class PartyRound {
   /** One blackjack engine per seat, in play order (seat 0 = first base, the dealer's left). */
-  readonly seats: { round: BlackjackRound; style: Style | null }[];
+  readonly seats: { round: BlackjackRound; mind: Mindset | null; streak: number }[];
   dealer: Card[] = [];
   dealerBJ = false;
   phase: 'deal' | 'play' | 'done' = 'deal';
@@ -171,7 +341,7 @@ export class PartyRound {
     this.seats = seats.map((s) => {
       const round = new BlackjackRound(shoe, s.bet);
       round.dealer = [...STANDING];
-      return { round, style: s.style };
+      return { round, mind: s.mind, streak: s.streak ?? 0 };
     });
   }
 
@@ -288,20 +458,24 @@ export class PartyRound {
 }
 
 /**
- * Plays a whole round without a view (tests and simulations): AI seats by their style with
- * `chips[seat]` to double and split with, the player's seat (style null) by basic strategy.
+ * Plays a whole round without a view (tests and simulations): the regulars by their mindset with
+ * `chips[seat]` to double and split with, the player's seat (mind null) by basic strategy. With a
+ * `count`, every card turned face up is counted as it shows, and the regulars read its true count.
  */
-export function playOut(r: PartyRound, chips: number[], rng: Rng): SeatResult[] {
-  r.deal();
+export function playOut(r: PartyRound, chips: number[], rng: Rng, count?: HiLo): SeatResult[] {
+  const see = (evs: PEvent[]) => count?.see(shownCards(evs, r.dealer));
+  see(r.deal());
   r.seats.forEach((s, seat) => {
     while (r.live(seat)) {
       const h = r.hands(seat)[r.activeHand(seat)];
       const can = r.actions(seat, chips[seat]);
-      const m = s.style ? aiMove(s.style, h.cards, r.dealerUp, can, rng) : basicStrategy(h.cards, r.dealerUp, can.double, can.split);
+      const m = s.mind
+        ? aiMove(s.mind, h.cards, r.dealerUp, can, { tc: count?.trueCount ?? 0, streak: s.streak }, rng)
+        : basicStrategy(h.cards, r.dealerUp, can.double, can.split);
       if (m === 'double' || m === 'split') chips[seat] -= h.bet;
-      r.act(seat, m);
+      see(r.act(seat, m));
     }
   });
-  r.playDealer();
+  see(r.playDealer());
   return r.settle();
 }

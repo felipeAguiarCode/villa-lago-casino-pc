@@ -38,6 +38,11 @@ export abstract class TableGame implements GameView {
   private discards = 0;
   /** False when the game's own rules engine takes the opening bet from the wallet. */
   protected debitsOnDeal = true;
+
+  /** Chips on the felt already taken from the bankroll (tables that debit as the chips are placed). */
+  stakeOnTable() {
+    return this.debitsOnDeal || !this.spots ? 0 : this.spots.total;
+  }
   /** False for tables without cards (coin, race, wheel): no shuffle show, no deck box or tray. */
   protected usesCards = true;
   /**

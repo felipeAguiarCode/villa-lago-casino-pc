@@ -10,6 +10,11 @@ const GROUPS: Record<string, string[]> = {
   chips: [1, 2, 3, 4].map((n) => `chips-collide-${n}`),
   handle: [1, 2, 3, 4, 5, 6].map((n) => `chips-handle-${n}`),
   stack: [1, 2, 3, 4, 5, 6].map((n) => `chips-stack-${n}`),
+  /** Dice (craps): picking the pair up, shaking it in the hand, the throw, and a single die landing. */
+  diceGrab: ['dice-grab-1', 'dice-grab-2'],
+  diceShake: [1, 2, 3].map((n) => `dice-shake-${n}`),
+  diceThrow: [1, 2, 3].map((n) => `dice-throw-${n}`),
+  dieThrow: [1, 2, 3, 4].map((n) => `die-throw-${n}`),
 };
 
 export type SfxName = keyof typeof GROUPS;

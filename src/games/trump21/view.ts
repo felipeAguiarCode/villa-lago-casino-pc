@@ -9,7 +9,10 @@ import { ICONS, type IconName } from '../../ui/icons';
 import { highlightCards, type SpotDef } from '../kit';
 import { TableGame } from '../tableGame';
 import type { GameCtx } from '../types';
-import { Duel, rarityOf, TRUMPS, type DuelEvent, type Side, type TrumpId } from './rules';
+import { cryptoRng } from '../../core/rng';
+import { newMemory } from '../partybj/mindset';
+import { duelPick } from '../partytrump/ai';
+import { Duel, isTargetTrump, rarityOf, TRUMPS, WILD_MAX, WILD_MIN, type DuelEvent, type Side, type TrumpId } from './rules';
 import { cardDataURL } from '../../table/cardFaces';
 
 addStrings(
@@ -73,6 +76,32 @@ addStrings(
     'tr.line27.d': 'The target becomes 27 this round',
     'tr.reset21': 'Reset 21',
     'tr.reset21.d': 'The target goes back to 21',
+    'tr.line15': 'Line 15',
+    'tr.line15.d': 'The target becomes 15 this round',
+    'tr.line18': 'Line 18',
+    'tr.line18.d': 'The target becomes 18 this round',
+    'tr.line19': 'Line 19',
+    'tr.line19.d': 'The target becomes 19 this round',
+    'tr.line20': 'Line 20',
+    'tr.line20.d': 'The target becomes 20 this round',
+    'tr.line22': 'Line 22',
+    'tr.line22.d': 'The target becomes 22 this round',
+    'tr.line23': 'Line 23',
+    'tr.line23.d': 'The target becomes 23 this round',
+    'tr.line25': 'Line 25',
+    'tr.line25.d': 'The target becomes 25 this round',
+    'tr.line26': 'Line 26',
+    'tr.line26.d': 'The target becomes 26 this round',
+    'tr.line30': 'Line 30',
+    'tr.line30.d': 'The target becomes 30 this round',
+    'tr.shiftUp': 'Line +2',
+    'tr.shiftUp.d': 'Raise the target by 2 (30 at most)',
+    'tr.shiftDown': 'Line −2',
+    'tr.shiftDown.d': 'Lower the target by 2 (15 at least)',
+    'tr.lineWild': 'Wild Line',
+    'tr.lineWild.d': 'The target becomes a random number from 16 to 28, never the current one',
+    't21.hintTrump': 'Play {name}: it moves the target your way',
+    't21.hintPlay': 'Play {name} now',
     'tr.force': 'Force Draw',
     'tr.force.d': 'Your opponent must take the top card',
     'tr.freeze': 'Freeze',
@@ -104,9 +133,12 @@ addStrings(
       <h4>Turns</h4>
       <p>Take turns to <b>hit</b> or <b>stand</b>. The round ends when you stand and the dealer stands right after. Going over the target is a bust, but the round goes on — a trump may still save you.</p>
       <h4>Winning</h4>
-      <p>Closest to the <b>target</b> (21 unless a trump changes it) without going over wins 1:1. If both bust, the lower total wins. <b>Ties go to you.</b></p>
+      <p>Closest to the <b>target</b> (21 unless a trump changes it) without going over wins 1:1. If both bust, the lower total wins. <b>Ties go to the dealer</b> (the house's edge).</p>
       <h4>Trump cards</h4>
-      <p>Each round you and the dealer get a trump card, and every card you draw has a chance to give you another (up to five, kept between rounds). Tap a trump to play it any time on your turn — there are 29 of them, common, uncommon and rare (gold border). The dealer plays trumps too!</p>`,
+      <p>Each round you and the dealer get a trump card, and every card you draw has a chance to give you another (up to five, kept between rounds). Tap a trump to play it any time on your turn — there are {n} of them, common, uncommon and rare (gold border). The dealer plays trumps too, three turns in four when one fits; his hand also holds five, and a new one replaces his oldest.</p>
+      <p>Target trumps move the line anywhere from 15 to 30, and Wild Line draws it at random.</p>
+      <h4>Hint</h4>
+      <p>The light bulb shows the strongest move it finds, trumps included.</p>`,
   },
   {
     't21.stakes': 'DOBRO',
@@ -166,6 +198,32 @@ addStrings(
     'tr.line27.d': 'O alvo vira 27 nesta rodada',
     'tr.reset21': 'Volta 21',
     'tr.reset21.d': 'O alvo volta para 21',
+    'tr.line15': 'Linha 15',
+    'tr.line15.d': 'O alvo vira 15 nesta rodada',
+    'tr.line18': 'Linha 18',
+    'tr.line18.d': 'O alvo vira 18 nesta rodada',
+    'tr.line19': 'Linha 19',
+    'tr.line19.d': 'O alvo vira 19 nesta rodada',
+    'tr.line20': 'Linha 20',
+    'tr.line20.d': 'O alvo vira 20 nesta rodada',
+    'tr.line22': 'Linha 22',
+    'tr.line22.d': 'O alvo vira 22 nesta rodada',
+    'tr.line23': 'Linha 23',
+    'tr.line23.d': 'O alvo vira 23 nesta rodada',
+    'tr.line25': 'Linha 25',
+    'tr.line25.d': 'O alvo vira 25 nesta rodada',
+    'tr.line26': 'Linha 26',
+    'tr.line26.d': 'O alvo vira 26 nesta rodada',
+    'tr.line30': 'Linha 30',
+    'tr.line30.d': 'O alvo vira 30 nesta rodada',
+    'tr.shiftUp': 'Linha +2',
+    'tr.shiftUp.d': 'Sobe o alvo em 2 (no máximo 30)',
+    'tr.shiftDown': 'Linha −2',
+    'tr.shiftDown.d': 'Desce o alvo em 2 (no mínimo 15)',
+    'tr.lineWild': 'Linha Louca',
+    'tr.lineWild.d': 'O alvo vira um número aleatório de 16 a 28, nunca o atual',
+    't21.hintTrump': 'Use {name}: o alvo muda a seu favor',
+    't21.hintPlay': 'Use {name} agora',
     'tr.force': 'Compra Forçada',
     'tr.force.d': 'O oponente é obrigado a pegar a carta do topo',
     'tr.freeze': 'Congelar',
@@ -197,14 +255,26 @@ addStrings(
       <h4>Turnos</h4>
       <p>Revezem entre <b>pedir</b> e <b>parar</b>. A rodada acaba quando você para e o dealer para logo depois. Passar do alvo é estourar, mas a rodada continua — um trunfo ainda pode te salvar.</p>
       <h4>Vitória</h4>
-      <p>Quem chegar mais perto do <b>alvo</b> (21, a não ser que um trunfo mude) sem passar ganha 1:1. Se os dois estourarem, vence o total menor. <b>Empate é seu.</b></p>
+      <p>Quem chegar mais perto do <b>alvo</b> (21, a não ser que um trunfo mude) sem passar ganha 1:1. Se os dois estourarem, vence o total menor. <b>Empate é do dealer</b> (a vantagem da casa).</p>
       <h4>Cartas trunfo</h4>
-      <p>A cada rodada você e o dealer ganham um trunfo, e cada carta comprada pode dar outro (até cinco, guardados entre rodadas). Toque num trunfo para usá-lo no seu turno — são 29, entre comuns, incomuns e raros (borda dourada). O dealer também usa trunfos!</p>`,
+      <p>A cada rodada você e o dealer ganham um trunfo, e cada carta comprada pode dar outro (até cinco, guardados entre rodadas). Toque num trunfo para usá-lo no seu turno — são {n}, entre comuns, incomuns e raros (borda dourada). O dealer também usa trunfos, em três de cada quatro turnos em que um serve; a mão dele também guarda cinco, e um novo substitui o mais antigo.</p>
+      <p>Os trunfos de alvo levam a linha para qualquer ponto entre 15 e 30, e a Linha Louca a sorteia.</p>
+      <h4>Dica</h4>
+      <p>A lâmpada mostra a jogada mais forte que encontra, trunfos incluídos.</p>`,
   },
 );
 
 const V = { dealer: 0.245, target: 0.372, player: 0.5 };
-const TRUMP_ICON: Record<TrumpId, { icon?: IconName; text?: string }> = {
+
+/** Wild Line's art: a tilted die (five pips cut out), drawn like the shared 24×24 icons. */
+const pip = (x: number, y: number) => `M${x - 1.7} ${y}a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0 -3.4 0z`;
+const DIE_SVG =
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" transform="rotate(-12 12 12)" d="' +
+  'M6.6 3h10.8A3.6 3.6 0 0 1 21 6.6v10.8a3.6 3.6 0 0 1-3.6 3.6H6.6A3.6 3.6 0 0 1 3 17.4V6.6A3.6 3.6 0 0 1 6.6 3z' +
+  [pip(7.8, 7.8), pip(16.2, 7.8), pip(12, 12), pip(7.8, 16.2), pip(16.2, 16.2)].join('') +
+  '"/></svg>';
+
+const TRUMP_ICON: Record<TrumpId, { icon?: IconName; text?: string; svg?: string }> = {
   glimpse: { icon: 'eye' },
   precision: { icon: 'target' },
   feather: { icon: 'feather' },
@@ -219,10 +289,22 @@ const TRUMP_ICON: Record<TrumpId, { icon?: IconName; text?: string }> = {
   recall: { icon: 'redo' },
   foresight: { icon: 'crystal' },
   reshuffle: { icon: 'shuffle' },
+  line15: { text: '15' },
   line17: { text: '17' },
-  line24: { text: '24' },
-  line27: { text: '27' },
+  line18: { text: '18' },
+  line19: { text: '19' },
+  line20: { text: '20' },
   reset21: { text: '21' },
+  line22: { text: '22' },
+  line23: { text: '23' },
+  line24: { text: '24' },
+  line25: { text: '25' },
+  line26: { text: '26' },
+  line27: { text: '27' },
+  line30: { text: '30' },
+  shiftUp: { text: '+2' },
+  shiftDown: { text: '−2' },
+  lineWild: { svg: DIE_SVG },
   burn: { icon: 'flame' },
   switch: { icon: 'swap' },
   force: { icon: 'bolt' },
@@ -236,9 +318,10 @@ const TRUMP_ICON: Record<TrumpId, { icon?: IconName; text?: string }> = {
   bounty: { icon: 'crown' },
 };
 
-const trumpFace = (id: TrumpId) => {
+/** A trump card's face art (an icon, a number, or its own SVG). */
+export const trumpFace = (id: TrumpId) => {
   const ic = TRUMP_ICON[id];
-  return ic.icon ? ICONS[ic.icon] : `<em>${ic.text}</em>`;
+  return ic.svg ?? (ic.icon ? ICONS[ic.icon] : `<em>${ic.text}</em>`);
 };
 
 type TurnPick = 'hit' | 'stand' | { trump: TrumpId };
@@ -268,7 +351,7 @@ export class Trump21View extends TableGame {
         `<div class="codex-row" data-rarity="${tr.rarity}"><span class="trump mini" data-rarity="${tr.rarity}"><span class="tr-ic">${trumpFace(tr.id)}</span></span>` +
         `<span><b>${this.trumpName(tr.id)}</b> <i>${t(`rar.${tr.rarity}`)}${tr.dealer ? ` · ${t('t21.dealerOnly')}` : ''}</i><br>${t(`tr.${tr.id}.d`)}</span></div>`,
     ).join('');
-    return `${t('t21.rules')}<h4>${t('t21.codex')}</h4><div class="codex">${rows}</div>`;
+    return `${t('t21.rules', { n: TRUMPS.length })}<h4>${t('t21.codex')}</h4><div class="codex">${rows}</div>`;
   }
 
   protected spotDefs(): SpotDef[] {
@@ -326,10 +409,26 @@ export class Trump21View extends TableGame {
     return '';
   }
 
+  /**
+   * The light bulb: the strongest move found (partytrump/ai.ts, the same reasoning as the Party
+   * table's bulb and its best regulars): hit, stand, or a trump to play now.
+   */
   protected advice() {
     if (!this.myTurn) return null;
-    const a = this.duel.advice();
-    return { id: a, msg: a === 'hit' ? t('t21.hintHit') : t('t21.hintStand') };
+    const pick = duelPick(this.duel, 'calculated', newMemory(), cryptoRng);
+    if (typeof pick === 'object') {
+      const tr = pick.trump;
+      // a trump turns this hand around: flash that card (no button to highlight)
+      const b = this.rowEl?.querySelector<HTMLElement>(`.trump[data-id="${tr}"]`);
+      if (b) {
+        b.classList.remove('fresh');
+        void b.offsetWidth;
+        b.classList.add('fresh');
+      }
+      const key = isTargetTrump(tr) ? 't21.hintTrump' : 't21.hintPlay';
+      return { id: 'trump', msg: t(key, { name: this.trumpName(tr) }) };
+    }
+    return { id: pick, msg: pick === 'hit' ? t('t21.hintHit') : t('t21.hintStand') };
   }
 
   // ---------------------------------------------------------------- HUD
@@ -391,6 +490,29 @@ export class Trump21View extends TableGame {
     b.textContent = String(n);
     this.targetPin!.el.classList.toggle('changed', n !== 21);
     if (pop) this.targetPin!.pop();
+  }
+
+  /** Wild Line: the target display rolls through numbers like a slot reel (a tick per step), then lands with the bell. */
+  private async spinTarget(n: number) {
+    const { sfx } = this.g;
+    const b = this.targetPin?.el.querySelector('b');
+    if (b) {
+      const steps = 14;
+      let shown = Number(b.textContent);
+      for (let i = 0; i < steps; i++) {
+        let v = shown;
+        // a different number each step, and never the result just before it lands
+        while (v === shown || (i === steps - 1 && v === n)) v = WILD_MIN + Math.floor(Math.random() * (WILD_MAX - WILD_MIN + 1));
+        shown = v;
+        b.textContent = String(v);
+        gsap.fromTo(b, { yPercent: -40, opacity: 0.4 }, { yPercent: 0, opacity: 1, duration: 0.07, overwrite: true });
+        sfx.tick(0.14, 0.85 + (0.4 * i) / steps);
+        await wait(0.045 + 0.17 * (i / steps) ** 2); // the reel slows down
+      }
+    }
+    this.setTarget(n);
+    if (b) gsap.fromTo(b, { yPercent: -40, opacity: 0.4 }, { yPercent: 0, opacity: 1, duration: 0.22, ease: 'back.out(3)', overwrite: true });
+    sfx.bell();
   }
 
   private updateBubbles() {
@@ -494,8 +616,11 @@ export class Trump21View extends TableGame {
           break;
         }
         case 'target': {
-          this.setTarget(e.n);
-          sfx.play('chips', { vol: 0.5 });
+          if (e.wild) await this.spinTarget(e.n);
+          else {
+            this.setTarget(e.n);
+            sfx.play('chips', { vol: 0.5 });
+          }
           this.updateBubbles();
           break;
         }
@@ -556,6 +681,8 @@ export class Trump21View extends TableGame {
         }
         case 'lose': {
           this.renderTrumps();
+          // the dealer's oldest trump making room for a new one: nothing to announce
+          if (e.by === 'discard') break;
           if (e.side === 'player') hud.toast(t('t21.lostTrump', { name: this.trumpName(e.id) }), 1800);
           else if (e.by === 'shatter') hud.toast(t('t21.shattered', { name: this.trumpName(e.id) }), 1600);
           else hud.toast(t('t21.stole', { name: this.trumpName(e.id) }), 1600);

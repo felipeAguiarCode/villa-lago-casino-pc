@@ -5,7 +5,6 @@ import { money } from '../../core/wallet';
 import { peekCard, shake, slideCard, slideChips, wait, type Place } from '../../table/anim';
 import { CARD_H, REST_Y, type Card3D } from '../../table/cardMesh';
 import { ChipPile } from '../../table/chips';
-import { FONT, GOLD, INK, makeCanvas, smileArc, smileText } from '../../table/prints';
 import { FELTS, type FeltKey } from '../../table/table';
 import type { Pin } from '../../ui/hud';
 import { handValue, totalLabel } from '../blackjack/rules';
@@ -14,7 +13,10 @@ import type { SpotDef } from '../kit';
 import { TableGame } from '../tableGame';
 import type { GameCtx } from '../types';
 import { dealerX, fanPlace, handLx, LY, onTable, PLAYER_SEAT, seatLayout, type SeatGeo } from './layout';
-import { aiBet, aiMove, PartyRound, PB, REGULARS, type AiProfile, type PEvent, type SeatResult } from './rules';
+import { drawMindset, newMemory, remember, thinkTime, type AiMemory, type Mindset } from './mindset';
+import { boxWidth, glowPlate, PARTY_COLORS as COLORS, partyPlate, partyPrint, seatBox, setPlateName, type Plate } from './partyKit';
+import { drawRegulars, replacementFor } from './roster';
+import { aiBet, aiMove, closeSpot, HiLo, isBroke, PartyRound, PB, shownCards, type AiProfile, type PEvent, type SeatResult } from './rules';
 
 addStrings(
   {
@@ -24,19 +26,13 @@ addStrings(
     'pb.tagline': 'Five seats · Pays 3 to 2',
     'pb.bet': 'BET',
     'pb.needBet': 'Place your BET',
-    'pb.you': 'You',
-    'pb.betOf': 'Bet {n}',
-    'pb.style.bookish': 'Bookish',
-    'pb.style.cautious': 'Cautious',
-    'pb.style.daring': 'Daring',
-    'pb.style.wildcard': 'Wildcard',
-    'pb.think': '…',
     'pb.bust': 'Bust!',
     'pb.bj': 'Blackjack!',
     'pb.win': 'Win',
     'pb.lose': 'Lose',
     'pb.push': 'Push',
-    'pb.rebuy': 'Rebuy',
+    'pb.busted': 'Busted!',
+    'pb.newcomer': 'New player',
     'pb.rules': `
       <p>Blackjack at a busy table: you and four regulars each play your own hand against the same dealer. Get closer to 21 than the dealer without going over. Face cards count 10 and Aces 1 or 11.</p>
       <h4>Table</h4>
@@ -46,7 +42,7 @@ addStrings(
       <h4>Moves</h4>
       <p><b>Hit</b>: take a card. <b>Stand</b>: keep your hand. <b>Double</b>: double the bet and take exactly one more card (any first two cards, also after splitting). <b>Split</b>: split a pair into two hands (up to 4 hands; split Aces get one card each).</p>
       <h4>The regulars</h4>
-      <p><b>Ines</b> is bookish and plays perfect basic strategy · <b>Walter</b> is cautious and stands on 12 or more · <b>Milo</b> is a wildcard: basic strategy, with the odd surprise · <b>Roxie</b> is daring: she hits to 17 and doubles a lot. They bet 10–200 of their own chips; only your bets touch your bankroll.</p>
+      <p>Regulars from the Villa Lago circuit sit in with you, a different crowd at every visit. Each has a temperament of their own, but nobody plays every hand the same way: sometimes they press, sometimes they play it careful, and sometimes they are quietly counting cards. Watch their bets and their moves; what they are thinking, they keep to themselves. When one goes broke they leave, and someone new pulls up a chair. They bet 10–200 of their own chips; only your bets touch your bankroll.</p>
       <h4>Hint</h4>
       <p>The light bulb shows the basic-strategy play for these rules.</p>`,
   },
@@ -56,17 +52,12 @@ addStrings(
     'pb.tagline': 'Cinco lugares · Paga 3 para 2',
     'pb.bet': 'APOSTA',
     'pb.needBet': 'Faça sua APOSTA',
-    'pb.you': 'Você',
-    'pb.betOf': 'Aposta {n}',
-    'pb.style.bookish': 'Estudiosa',
-    'pb.style.cautious': 'Cauteloso',
-    'pb.style.daring': 'Ousada',
-    'pb.style.wildcard': 'Imprevisível',
     'pb.bust': 'Estourou!',
     'pb.win': 'Ganhou',
     'pb.lose': 'Perdeu',
     'pb.push': 'Empate',
-    'pb.rebuy': 'Recompra',
+    'pb.busted': 'Quebrou!',
+    'pb.newcomer': 'Chegou',
     'pb.rules': `
       <p>Blackjack numa mesa cheia: você e quatro frequentadores jogam cada um a sua mão contra o mesmo dealer. Chegue mais perto de 21 que o dealer sem passar. Figuras valem 10 e o Ás vale 1 ou 11.</p>
       <h4>Mesa</h4>
@@ -76,7 +67,7 @@ addStrings(
       <h4>Jogadas</h4>
       <p><b>Pedir</b>: receber uma carta. <b>Parar</b>: ficar com a mão. <b>Dobrar</b>: dobrar a aposta e receber exatamente mais uma carta (com as duas primeiras cartas, também depois de dividir). <b>Dividir</b>: separar um par em duas mãos (até 4 mãos; Ases divididos recebem uma carta cada).</p>
       <h4>Os frequentadores</h4>
-      <p><b>Ines</b> é estudiosa e joga a estratégia básica perfeita · <b>Walter</b> é cauteloso e para com 12 ou mais · <b>Milo</b> é imprevisível: estratégia básica, com uma surpresa de vez em quando · <b>Roxie</b> é ousada: pede até 17 e dobra muito. Eles apostam de 10 a 200 com as próprias fichas; só as suas apostas mexem no seu saldo.</p>
+      <p>Frequentadores do circuito Villa Lago sentam com você, uma turma diferente a cada visita. Cada um tem o seu temperamento, mas ninguém joga todas as mãos do mesmo jeito: às vezes partem para cima, às vezes jogam com cautela e às vezes estão contando cartas em silêncio. Repare nas apostas e nas jogadas; o que estão pensando, eles guardam para si. Quem quebra se levanta, e logo outra pessoa puxa a cadeira. Eles apostam de 10 a 200 com as próprias fichas; só as suas apostas mexem no seu saldo.</p>
       <h4>Dica</h4>
       <p>A lâmpada mostra a jogada da estratégia básica para estas regras.</p>`,
   },
@@ -84,8 +75,6 @@ addStrings(
 
 /** Vertical anchors in the portrait layout frame. */
 const V = { dealer: 0.205, print: 0.352, seat: 0.72 };
-/** Box colours from the player's left to right: green, red, blue (you), gold, purple. */
-const COLORS = ['#5fd08a', '#ff6b5e', '#7cc4ff', '#f2cb62', '#c08bff'];
 /** Betting places of the player's hands (the first is the one bet on; splits use the others). */
 const PSPOTS = ['bet', 'h2', 'h3', 'h4'];
 const N = 5;
@@ -101,7 +90,14 @@ interface AiState {
   stake: number;
   /** What the dealer settled (stake + winnings) while it is still on the felt; null before the showdown. */
   owed: number | null;
+  /** What the regular remembers of the session (streak, last mindset); their next mindset leans on it. */
+  mem: AiMemory;
+  /** This hand's hidden mindset, drawn when they bet. Never shown. */
+  mind: Mindset | null;
 }
+
+/** A regular sitting down: their own bankroll and a fresh memory. */
+const seatRegular = (profile: AiProfile): AiState => ({ profile, chips: profile.bank, stake: 0, owed: null, mem: newMemory(), mind: null });
 
 interface HandV {
   cards: (Card3D | undefined)[];
@@ -127,76 +123,24 @@ interface SeatV {
   extraPiles: ChipPile[];
   payouts: ChipPile[];
   plate: Pin;
-  plateText: { name: HTMLElement; chips: HTMLElement; bet: HTMLElement };
+  plateText: Plate['plateText'];
   tag: Pin;
   tagOn: boolean;
   active: boolean;
 }
-
-/** Felt print: title, payout and the dealer rule between two gold arcs, curved like the seats. */
-function partyPrint(title: string, pays: string, rule: string): HTMLCanvasElement {
-  const { cv, g } = makeCanvas(1024, 360);
-  smileText(g, title, 512, 100, 900, FONT.title(54), GOLD, 6);
-  smileText(g, pays, 512, 166, 900, FONT.title(36), INK, 3);
-  smileArc(g, 512, 226, 900, 0.5, GOLD, 4);
-  smileArc(g, 512, 300, 900, 0.5, GOLD, 4);
-  smileText(g, rule, 512, 275, 900, FONT.title(28), GOLD, 4);
-  return cv;
-}
-
-const PPU = 220;
-const PAD = 0.07;
-
-/** A seat's coloured betting box (cards above, the chip circle at the bottom), drawn in its frame. */
-function seatBox(geo: SeatGeo, color: string): HTMLCanvasElement {
-  const w = (geo.halfW + PAD) * 2 * PPU;
-  const h = (geo.top - geo.bottom + PAD * 2) * PPU;
-  const { cv, g } = makeCanvas(Math.round(w), Math.round(h));
-  const p = PAD * PPU;
-  const r = 0.16 * PPU;
-  const box = (inset: number) => {
-    g.beginPath();
-    g.roundRect(p + inset, p + inset, w - 2 * (p + inset), h - 2 * (p + inset), Math.max(4, r - inset));
-  };
-  g.fillStyle = color;
-  g.globalAlpha = 0.07;
-  box(0);
-  g.fill();
-  g.globalAlpha = 1;
-  g.strokeStyle = color;
-  g.shadowColor = color;
-  g.shadowBlur = 16;
-  g.lineWidth = geo.big ? 9 : 7;
-  box(0);
-  g.stroke();
-  g.shadowBlur = 0;
-  g.globalAlpha = 0.55;
-  g.lineWidth = 2.5;
-  box(geo.big ? 14 : 11);
-  g.stroke();
-  // the chip circle
-  const cy = (geo.top + PAD) * PPU;
-  g.globalAlpha = 0.9;
-  g.lineWidth = 6;
-  g.beginPath();
-  g.arc(w / 2, cy, 0.3 * PPU, 0, Math.PI * 2);
-  g.stroke();
-  g.globalAlpha = 0.45;
-  g.lineWidth = 2;
-  g.beginPath();
-  g.arc(w / 2, cy, 0.25 * PPU, 0, Math.PI * 2);
-  g.stroke();
-  return cv;
-}
-
-const css = (el: HTMLElement, s: Partial<CSSStyleDeclaration>) => Object.assign(el.style, s);
 
 export class PartyBlackjackView extends TableGame {
   readonly id = 'partybj';
   readonly title = 'Party Blackjack';
   // deep blue felt (falls back to a stock blue until the 'partybj' felt exists)
   protected readonly felt = ('partybj' in FELTS ? 'partybj' : 'doubledraw') as FeltKey;
-  private ai: AiState[] = REGULARS.map((profile) => ({ profile, chips: profile.bank, stake: 0, owed: null }));
+  private rng = cryptoRng;
+  /** The four regulars at the table (a new draw from the circuit at every visit). */
+  private ai: AiState[] = drawRegulars(4, cryptoRng).map(seatRegular);
+  /** The regulars' Hi-Lo count of the shoe: they all watch the same cards. */
+  private count = new HiLo(PB.decks);
+  /** Cards left in the shoe when the count last looked: more now means it was reshuffled. */
+  private shoeLeft = 0;
   private seats: SeatV[] = [];
   private round: PartyRound | null = null;
   private dealer: (Card3D | undefined)[] = [];
@@ -213,10 +157,17 @@ export class PartyBlackjackView extends TableGame {
   private aiBetting: Promise<void> = Promise.resolve();
   private aiSweep: Promise<void> = Promise.resolve();
   private v3 = new THREE.Vector3();
-  private rng = cryptoRng;
 
   constructor(g: GameCtx) {
     super(g, PB.decks);
+  }
+
+  /** A different crowd at every visit: four regulars of the circuit sit in, at a freshly shuffled shoe. */
+  async enter() {
+    this.ai = drawRegulars(4, this.rng).map(seatRegular);
+    this.count.reset();
+    this.shoeLeft = 0;
+    await super.enter();
   }
 
   rules() {
@@ -254,7 +205,7 @@ export class PartyBlackjackView extends TableGame {
     const geos = seatLayout(playerZ, stage.stretch);
     this.seats = geos.map((geo, pos) => {
       const mid = onTable(geo, 0, (geo.top + geo.bottom) / 2);
-      table.addDecalAt(seatBox(geo, COLORS[pos]), mid.x, mid.z, (geo.halfW + PAD) * 2).rotation.y = geo.yaw;
+      table.addDecalAt(seatBox(geo, COLORS[pos]), mid.x, mid.z, boxWidth(geo)).rotation.y = geo.yaw;
       const ai = pos === PLAYER_SEAT ? null : this.ai[pos < PLAYER_SEAT ? pos : pos - 1];
       const at = onTable(geo, 0, 0);
       const sv: SeatV = {
@@ -266,7 +217,7 @@ export class PartyBlackjackView extends TableGame {
         betPile: ai ? new ChipPile(this.g.chips, stage.table, new THREE.Vector3(at.x, 0, at.z)) : null,
         extraPiles: [],
         payouts: [],
-        ...this.makePlate(pos, ai),
+        ...partyPlate(this.g.hud, COLORS[pos], ai ? ai.profile : null),
         tag: this.g.hud.pin('handtag'),
         tagOn: false,
         active: false,
@@ -275,68 +226,6 @@ export class PartyBlackjackView extends TableGame {
     });
     this.dealerBubble = this.g.hud.pin('bubble');
     this.dealerTag = this.g.hud.pin('handtag dealer');
-  }
-
-  /** Name plate under a seat: avatar, name and style, chips and bet (inline styles only). */
-  private makePlate(pos: number, ai: AiState | null) {
-    const plate = this.g.hud.pin('pb-plate');
-    const el = plate.el;
-    const color = COLORS[pos];
-    css(el, {
-      position: 'absolute',
-      left: '0',
-      top: '0',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 'calc(1.6 * var(--u))',
-      padding: 'calc(0.9 * var(--u)) calc(2.6 * var(--u)) calc(0.9 * var(--u)) calc(0.9 * var(--u))',
-      borderRadius: 'calc(6 * var(--u))',
-      background: 'linear-gradient(rgba(20, 28, 46, 0.92), rgba(7, 11, 20, 0.92))',
-      border: 'calc(0.45 * var(--u)) solid rgba(216, 182, 96, 0.75)',
-      boxShadow: '0 calc(0.6 * var(--u)) calc(1.4 * var(--u)) rgba(0, 0, 0, 0.6)',
-      color: '#f3ead2',
-      whiteSpace: 'nowrap',
-      transition: 'opacity 0.25s, box-shadow 0.25s, border-color 0.25s',
-      willChange: 'transform',
-    });
-    const avatar = document.createElement('div');
-    avatar.textContent = ai ? ai.profile.name[0] : '★';
-    css(avatar, {
-      width: 'calc(7.4 * var(--u))',
-      height: 'calc(7.4 * var(--u))',
-      borderRadius: '50%',
-      display: 'grid',
-      placeItems: 'center',
-      font: `700 calc(4.2 * var(--u))/1 "Cinzel", serif`,
-      color: '#fff',
-      textShadow: '0 calc(0.3 * var(--u)) 0 rgba(0, 0, 0, 0.55)',
-      background: `radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55), ${color} 45%, rgba(0, 0, 0, 0.55) 120%)`,
-      border: 'calc(0.4 * var(--u)) solid rgba(255, 255, 255, 0.8)',
-      flex: '0 0 auto',
-    });
-    const text = document.createElement('div');
-    css(text, { display: 'flex', flexDirection: 'column', gap: 'calc(0.5 * var(--u))' });
-    const top = document.createElement('div');
-    css(top, { font: `700 calc(4 * var(--u))/1 "Barlow Condensed", sans-serif`, letterSpacing: '0.06em', textTransform: 'uppercase' });
-    const name = document.createElement('span');
-    name.textContent = ai ? ai.profile.name : t('pb.you');
-    top.appendChild(name);
-    if (ai) {
-      const style = document.createElement('span');
-      style.textContent = ` · ${t(`pb.style.${ai.profile.style}`)}`;
-      css(style, { fontStyle: 'italic', fontWeight: '500', opacity: '0.65', textTransform: 'none', letterSpacing: '0.02em' });
-      top.appendChild(style);
-    }
-    const bottom = document.createElement('div');
-    css(bottom, { display: 'flex', gap: 'calc(1.8 * var(--u))', font: `600 calc(3.6 * var(--u))/1 "Barlow Condensed", sans-serif`, fontVariantNumeric: 'tabular-nums' });
-    const chips = document.createElement('span');
-    css(chips, { color: '#ffe9a6' });
-    const bet = document.createElement('span');
-    css(bet, { color: '#cfe3ff' });
-    bottom.append(chips, bet);
-    text.append(top, bottom);
-    el.append(avatar, text);
-    return { plate, plateText: { name, chips, bet } };
   }
 
   private disposeSeats() {
@@ -403,11 +292,7 @@ export class PartyBlackjackView extends TableGame {
       if (sv.plateText.chips.textContent !== ct) sv.plateText.chips.textContent = ct;
       const bt = bet > 0 ? t('pb.betOf', { n: money(bet) }) : '';
       if (sv.plateText.bet.textContent !== bt) sv.plateText.bet.textContent = bt;
-      const glow = sv.active ? `0 0 calc(3 * var(--u)) ${sv.color}, 0 calc(0.6 * var(--u)) calc(1.4 * var(--u)) rgba(0, 0, 0, 0.6)` : '0 calc(0.6 * var(--u)) calc(1.4 * var(--u)) rgba(0, 0, 0, 0.6)';
-      if (sv.plate.el.style.boxShadow !== glow) {
-        sv.plate.el.style.boxShadow = glow;
-        sv.plate.el.style.borderColor = sv.active ? sv.color : 'rgba(216, 182, 96, 0.75)';
-      }
+      glowPlate(sv.plate, sv.color, sv.active);
     }
     if (this.dealerBubble) {
       const any = this.dealer.some((c) => c?.faceUp);
@@ -500,23 +385,50 @@ export class PartyBlackjackView extends TableGame {
     await this.alive(run);
     const { sfx } = this.g;
     const order = [0, 1, 3, 4].map((p) => this.seats[p]).filter((sv) => sv?.ai && sv.betPile && !sv.betPile.amount);
+    const tc = this.betCount();
     const jobs = order.map(async (sv, k) => {
       const ai = sv.ai!;
       await wait(0.15 + k * 0.28 + Math.random() * 0.12);
       await this.alive(run);
-      if (ai.chips < PB.aiMin) {
-        ai.chips = ai.profile.bank;
-        this.say(sv, t('pb.rebuy'), 'win');
-        sfx.coins(5);
-      }
-      // a regular always plays (after a rebuy it can always cover the 10 minimum)
-      const bet = aiBet(ai.profile.style, ai.chips, this.rng);
+      if (isBroke(ai.chips)) await this.replaceRegular(sv, run);
+      // the hand's hidden mindset, then the bet it calls for (a regular always plays)
+      ai.mind = drawMindset(ai.profile, ai.mem, ai.chips, this.rng);
+      const bet = aiBet(ai.mind, ai.chips, ai.mem, tc, this.rng);
       ai.chips -= bet;
       ai.stake = bet;
       sfx.play('handle', { vol: 0.35 });
       await sv.betPile!.dropIn(bet, this.home(sv), 0.06);
     });
     await Promise.all(jobs);
+  }
+
+  /** A regular who can't cover the minimum leaves; a newcomer from the circuit takes the seat. */
+  private async replaceRegular(sv: SeatV, run: number) {
+    const { sfx } = this.g;
+    this.say(sv, t('pb.busted'), 'lose');
+    sfx.play('shove', { vol: 0.4 });
+    await wait(1.1);
+    await this.alive(run);
+    const next = replacementFor(this.ai.map((a) => a.profile.name), this.rng);
+    Object.assign(sv.ai!, seatRegular(next));
+    setPlateName(sv, next);
+    this.say(sv, t('pb.newcomer'), 'win');
+    sfx.coins(4);
+    await wait(0.6);
+    await this.alive(run);
+  }
+
+  // ---------------------------------------------------------------- the count
+  /** Starts a fresh count when the shoe was reshuffled since the count last looked. */
+  private syncCount() {
+    if (this.shoe.remaining > this.shoeLeft) this.count.reset();
+    this.shoeLeft = this.shoe.remaining;
+  }
+
+  /** The true count the regulars bet on: a fresh shoe's once the cut card is out. */
+  private betCount() {
+    this.syncCount();
+    return this.shoe.needsShuffle ? 0 : this.count.trueCount;
   }
 
   /** The regulars' stakes and winnings slide back to their places, then join their chips. */
@@ -595,6 +507,8 @@ export class PartyBlackjackView extends TableGame {
 
   // ---------------------------------------------------------------- event playback
   private async play(evs: PEvent[], run: number) {
+    // every card that shows goes into the regulars' count
+    if (this.round) this.count.see(shownCards(evs, this.round.dealer));
     let pending: Promise<unknown>[] = [];
     for (const e of evs) {
       await this.alive(run);
@@ -744,10 +658,11 @@ export class PartyBlackjackView extends TableGame {
     const run = this.run;
     await this.aiBetting;
     await this.alive(run);
+    this.syncCount();
     // the seats in play order (first base first) with this round's bets
     const seatsIn = Array.from({ length: N }, (_, s) => {
-      const sv = this.seats[posOf(s)];
-      return sv.ai ? { bet: sv.ai.stake, style: sv.ai.profile.style } : { bet: this.spots.get('bet').amount, style: null };
+      const ai = this.seats[posOf(s)].ai;
+      return ai ? { bet: ai.stake, mind: ai.mind, streak: ai.mem.streak } : { bet: this.spots.get('bet').amount, mind: null };
     });
     const r = new PartyRound(this.shoe, seatsIn);
     this.round = r;
@@ -792,14 +707,17 @@ export class PartyBlackjackView extends TableGame {
     const r = this.round!;
     const sv = this.seats[posOf(s)];
     const ai = sv.ai!;
+    const mind = ai.mind ?? 'calculated';
     sv.active = true;
     while (r.live(s)) {
       const k = r.activeHand(s);
       const h = r.hands(s)[k];
+      const can = r.actions(s, ai.chips);
+      const tc = this.count.trueCount;
       this.say(sv, t('pb.think'), 'dealer');
-      await wait(0.5 + Math.random() * 0.45);
+      await wait(thinkTime(mind, closeSpot(h.cards, r.dealerUp, can, tc) !== null, this.rng));
       await this.alive(run);
-      const m = aiMove(ai.profile.style, h.cards, r.dealerUp, r.actions(s, ai.chips), this.rng);
+      const m = aiMove(mind, h.cards, r.dealerUp, can, { tc, streak: ai.mem.streak }, this.rng);
       this.say(sv, t(`btn.${m}`), m === 'double' || m === 'split' ? 'win' : '');
       if (m === 'hit') sfx.tick(0.16, 1.5);
       else if (m === 'stand') sfx.play('slide', { vol: 0.3, rate: 1.3 });
@@ -833,6 +751,11 @@ export class PartyBlackjackView extends TableGame {
 
   /** Every seat against the dealer, from third base (your left) to first base. */
   private async showdown(res: SeatResult[], run: number) {
+    // each regular remembers how the hand went (their next mindset leans on it)
+    for (const sr of res) {
+      const ai = this.seats[posOf(sr.seat)].ai;
+      if (ai?.mind) remember(ai.mem, ai.mind, sr.ret - sr.wager);
+    }
     const jobs = res.map((sr, s) => {
       const sv = this.seats[posOf(s)];
       const delay = sv.pos * 0.22;

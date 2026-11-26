@@ -67,6 +67,16 @@ export const SIGNATURES: Record<string, Signature> = {
   partybj: { kind: 'event', event: 'big' },
   coinflip: { kind: 'event', event: 'big' },
   horses: { kind: 'event', event: 'big' },
+  partyuth: { kind: 'event', event: 'big' },
+  vanunu: { kind: 'event', event: 'big' },
+  craps: { kind: 'event', event: 'big' },
+  partytrump: { kind: 'event', event: 'big' },
+  partyhorses: { kind: 'event', event: 'big' },
+  partystud: { kind: 'event', event: 'big' },
+  stud7: { kind: 'event', event: 'big' },
+  pokerdice: { kind: 'event', event: 'big' },
+  suitpoker: { kind: 'event', event: 'big' },
+  partytcp: { kind: 'event', event: 'big' },
 };
 
 export const BRAZIL_GAMES = ['manilhadraw', 'manilhaholdem', 'pifeexpress', 'videopife', 'canastradraw'];

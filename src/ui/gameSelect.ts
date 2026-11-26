@@ -16,6 +16,10 @@ export interface GameSelectDeps {
   xpFrac: () => number;
   onPlay: (id: string) => void;
   onTrophies: (game?: string) => void;
+  /** The Deck screen (card back pattern and colour). */
+  onDeck: () => void;
+  /** Start over with the starting bankroll (asks first). */
+  onReset: () => void;
   onSettings: () => void;
   onRefill: () => void;
   onFullscreen: () => void;
@@ -54,6 +58,8 @@ export class GameSelect {
         <div class="gs-pill">${t('gs.choose')}</div>
         <div class="gs-tools">
           <button class="gs-tool trophies live">${ICONS.trophy}<span>${t('gs.trophies')}</span><b data-r="tcount"></b></button>
+          <button class="gs-tool deck live">${ICONS.deal}<span>${t('gs.deck')}</span></button>
+          <button class="gs-tool reset live">${ICONS.redo}<span>${t('gs.reset')}</span></button>
           <button class="gs-tool round full live" aria-label="${t('aria.fullscreen')}">${ICONS.expand}</button>
           <button class="gs-tool round gear live" aria-label="${t('aria.settings')}">${ICONS.gear}</button>
         </div>
@@ -102,6 +108,11 @@ export class GameSelect {
     el.querySelector<HTMLButtonElement>('.trophies')!.onclick = () => {
       d.click();
       d.onTrophies();
+    };
+    el.querySelector<HTMLButtonElement>('.deck')!.onclick = () => d.onDeck();
+    el.querySelector<HTMLButtonElement>('.reset')!.onclick = () => {
+      d.click();
+      d.onReset();
     };
     el.querySelector<HTMLButtonElement>('.gear')!.onclick = () => {
       d.click();

@@ -2,11 +2,11 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { GAMES } from '../games/registry';
 import type { ChipSet } from './chips';
-import { caipirinha, champagne, chipTowers, dealerButton, decks, dice, martini, placard, plaques, whisky, wine } from './decorKit';
+import { caipirinha, champagne, chipTowers, cigarAshtray, dealerButton, decks, dice, martini, placard, plaques, whisky, wine } from './decorKit';
 import type { Stage } from './stage';
 import { pcLayout } from '../ui/layout';
 
-type Kind = 'whisky' | 'martini' | 'champagne' | 'champagne2' | 'wine' | 'caipirinha' | 'chips' | 'chipsHigh' | 'plaques' | 'button' | 'dice' | 'decks' | 'placard' | 'watch' | 'goblets';
+type Kind = 'whisky' | 'martini' | 'champagne' | 'champagne2' | 'wine' | 'caipirinha' | 'chips' | 'chipsHigh' | 'plaques' | 'button' | 'dice' | 'decks' | 'placard' | 'watch' | 'goblets' | 'cigar' | 'lighter';
 
 /** Where a piece sits: which side zone, how far down the screen (0..1) and how far out (0..1 across the zone). */
 interface Spot {
@@ -23,6 +23,9 @@ const L2 = { side: 'left', sy: 0.6, sx: 0.5 } as const;
 const R0 = { side: 'right', sy: 0.22, sx: 0.62 } as const;
 const R1 = { side: 'right', sy: 0.74, sx: 0.7 } as const;
 const R2 = { side: 'right', sy: 0.5, sx: 0.66 } as const;
+/** The lobby's cigar corner: the ashtray out at the right, the lighter just below it. */
+const RC = { side: 'right', sy: 0.42, sx: 0.84 } as const;
+const RL = { side: 'right', sy: 0.5, sx: 0.5 } as const;
 
 const set = (...spots: [Kind, { side: 'left' | 'right'; sy: number; sx: number }, number?][]): Spot[] => spots.map(([kind, at, yaw]) => ({ kind, ...at, yaw: yaw ?? 0 }));
 
@@ -33,7 +36,7 @@ const set = (...spots: [Kind, { side: 'left' | 'right'; sy: number; sx: number }
  * placard. Nothing random: the same table always looks the same.
  */
 const THEMES: Record<string, Spot[]> = {
-  lobby: set(['champagne', L1, 0.2], ['champagne2', L2, -0.4], ['plaques', R2, 0.3], ['dice', R1, 0.5]),
+  lobby: set(['champagne', L1, 0.2], ['champagne2', L2, -0.4], ['plaques', R1, 0.3], ['cigar', RC, 0.15], ['lighter', RL, -0.6]),
   blackjack: set(['whisky', L1], ['chips', R1, 0.3], ['placard', R0]),
   videobj: set(['martini', L1], ['chips', R1], ['placard', R0]),
   videopoker: set(['martini', L1], ['chips', R1], ['placard', R0]),
@@ -66,6 +69,16 @@ const THEMES: Record<string, Spot[]> = {
   partybj: [],
   coinflip: set(['champagne', L1], ['plaques', R1, 0.3], ['placard', R0]),
   horses: [],
+  partyuth: [],
+  vanunu: set(['whisky', R1], ['chips', R2], ['placard', R0]),
+  craps: [],
+  partytrump: [],
+  partyhorses: [],
+  partystud: [],
+  stud7: set(['whisky', L1], ['button', R1, 0.4], ['chips', R2], ['placard', R0]),
+  pokerdice: set(['whisky', R1], ['chips', R2], ['placard', R0]),
+  suitpoker: set(['martini', L1], ['chips', R1], ['placard', R0]),
+  partytcp: [],
   manilhadraw: set(['caipirinha', L1], ['chips', R1], ['placard', R0]),
   manilhaholdem: set(['caipirinha', L1], ['chips', R1], ['placard', R0]),
   pifeexpress: set(['caipirinha', L1], ['chips', R1], ['placard', R0]),
@@ -94,12 +107,12 @@ function blobShadow(radius: number): THREE.Mesh {
 /**
  * PC table decoration beside the play area. Pieces are built when a table first needs them and
  * kept in the side zones whatever the window size, so they never cover cards, chips or the HUD.
- * Two CC0 Poly Haven models (see CREDITS.md) join the pieces from decorKit.ts.
+ * Three CC0 Poly Haven models (see CREDITS.md) join the pieces from decorKit.ts.
  */
 export class Decor {
   private group = new THREE.Group();
   private pieces = new Map<string, THREE.Object3D>();
-  private models: Partial<Record<'watch' | 'goblets', THREE.Object3D>> = {};
+  private models: Partial<Record<'watch' | 'goblets' | 'lighter', THREE.Object3D>> = {};
   private theme = 'lobby';
   private shown: { obj: THREE.Object3D; spot: Spot }[] = [];
 
@@ -123,7 +136,7 @@ export class Decor {
           console.warn('decor not loaded:', name, e);
           return null;
         });
-    const [watch, goblets] = await Promise.all([get('vintage_pocket_watch'), get('brass_goblets')]);
+    const [watch, goblets, lighter] = await Promise.all([get('vintage_pocket_watch'), get('brass_goblets'), get('vintage_lighter')]);
     if (watch) {
       const s = 9;
       watch.scale.setScalar(s);
@@ -145,6 +158,15 @@ export class Decor {
       }
       this.models.goblets = holder;
     }
+    if (lighter) {
+      // a brass petrol lighter (metres in the file, 10 cm units here), standing by the ashtray
+      const s = 10;
+      lighter.scale.setScalar(s);
+      lighter.position.y = 0.0285 * s;
+      const holder = new THREE.Group();
+      holder.add(lighter, blobShadow(0.3));
+      this.models.lighter = holder;
+    }
     this.setTheme(this.theme);
   }
 
@@ -164,7 +186,7 @@ export class Decor {
   }
 
   private piece(kind: Kind, table: string): THREE.Object3D | null {
-    if (kind === 'watch' || kind === 'goblets') return this.models[kind] ?? null;
+    if (kind === 'watch' || kind === 'goblets' || kind === 'lighter') return this.models[kind] ?? null;
     const key = kind === 'placard' ? `placard.${table}` : kind;
     let obj = this.pieces.get(key);
     if (!obj) {
@@ -174,7 +196,7 @@ export class Decor {
     return obj;
   }
 
-  private build(kind: Exclude<Kind, 'watch' | 'goblets'>, table: string): THREE.Object3D {
+  private build(kind: Exclude<Kind, 'watch' | 'goblets' | 'lighter'>, table: string): THREE.Object3D {
     const holder = new THREE.Group();
     const add = (o: THREE.Object3D, shadow: number, scale = 1) => {
       o.scale.multiplyScalar(scale);
@@ -211,6 +233,9 @@ export class Decor {
         break;
       case 'dice':
         add(dice(), 0.35);
+        break;
+      case 'cigar':
+        add(cigarAshtray(), 0.7, 0.72);
         break;
       case 'decks':
         add(decks(this.back()), 0.7);

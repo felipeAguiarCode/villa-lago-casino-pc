@@ -35,6 +35,8 @@ export interface GameView {
   preset?(variant: string): void;
   /** Called when the bankroll changed from outside (bonus, refill, reset). */
   onWalletChange?(): void;
+  /** Chips the player has on the felt that are already taken from the bankroll (0 when none). */
+  stakeOnTable?(): number;
 }
 
 export interface GameInfo {

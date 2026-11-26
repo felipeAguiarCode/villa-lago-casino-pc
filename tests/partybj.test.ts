@@ -1,9 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { parseCard, parseCards, Shoe, type Card } from '../src/core/cards';
+import { freshDeck, parseCard, parseCards, Shoe, type Card } from '../src/core/cards';
 import { seededRng, type Rng } from '../src/core/rng';
 import { BlackjackRound, bjValue, handValue, type Actions } from '../src/games/blackjack/rules';
 import { basicStrategy } from '../src/games/blackjack/strategy';
-import { aiBet, aiMove, PartyRound, playOut, settleHand, type SeatIn, type Style } from '../src/games/partybj/rules';
+import { MINDSETS, newMemory, remember, type Mindset } from '../src/games/partybj/mindset';
+import { drawRegulars, replacementFor, ROSTER } from '../src/games/partybj/roster';
+import {
+  aiBet,
+  aiMove,
+  closeSpot,
+  countedMove,
+  HiLo,
+  hiLoTag,
+  isBroke,
+  PartyRound,
+  playOut,
+  settleHand,
+  shownCards,
+  type AiRead,
+  type SeatIn,
+} from '../src/games/partybj/rules';
 
 const ALL: Actions = { hit: true, stand: true, double: true, split: true };
 const NO_DBL: Actions = { hit: true, stand: true, double: false, split: false };
@@ -11,6 +27,8 @@ const c = (s: string) => parseCards(s);
 const up = (s: string) => parseCard(s);
 /** An rng that always returns the same draw (clamped to the range). */
 const fixed = (k: number): Rng => (n) => Math.min(k, n - 1);
+/** A read of the table: true count and the regular's streak. */
+const at = (tc: number, streak = 0): AiRead => ({ tc, streak });
 
 function rigged(codes: string, seed = 1) {
   const shoe = new Shoe(6, 0.75, seededRng(seed));
@@ -18,55 +36,196 @@ function rigged(codes: string, seed = 1) {
   return shoe;
 }
 
-describe('AI styles', () => {
-  it('bookish plays perfect basic strategy', () => {
-    const ups = ['2s', '6h', '7d', 'Tc', 'As'].map(up);
-    const hands = ['Ts 6d', '5c 6h', 'As 7d', '8s 8d', '4h 8c', 'Ac 2d', '9s 9h', 'Kd Qs'].map(c);
-    for (const h of hands)
-      for (const u of ups) for (const can of [ALL, NO_DBL]) expect(aiMove('bookish', h, u, can, fixed(0))).toBe(basicStrategy(h, u, can.double, can.split));
-    expect(aiMove('bookish', c('5c 6h'), up('6h'), ALL, fixed(0))).toBe('double');
-    expect(aiMove('bookish', c('8s 8d'), up('Tc'), ALL, fixed(0))).toBe('split');
+const UPS = ['2s', '3h', '4d', '5c', '6s', '7h', '8d', '9c', 'Ts', 'Ah'].map(up);
+const HANDS = ['Ts 2d', 'Ts 3d', 'Ts 4d', 'Ts 5d', 'Ts 6d', '9s 7d', '5c 6h', '4c 6h', '4c 5h', '3c 5h', 'As 2d', 'As 4d', 'As 6d', 'As 7d', 'As 8d', '8s 8d', '9s 9h', 'Ts Kd', '2s 2h', '6s 6d', '7s 7d', 'As Ad', '4s 4d', '5s 5d', 'Ts 9d', '2c 3h 4d'].map(c);
+
+describe('counting', () => {
+  it('Hi-Lo tags: 2–6 count +1, 7–9 count 0, tens and Aces count −1', () => {
+    expect(c('2s 3h 4d 5c 6s').map(hiLoTag)).toEqual([1, 1, 1, 1, 1]);
+    expect(c('7s 8h 9d').map(hiLoTag)).toEqual([0, 0, 0]);
+    expect(c('Ts Jh Qd Kc As').map(hiLoTag)).toEqual([-1, -1, -1, -1, -1]);
+    // a balanced count: a whole shoe adds up to zero
+    const count = new HiLo(6);
+    count.see(freshDeck(6));
+    expect(count.running).toBe(0);
+    expect(count.seen).toBe(312);
   });
 
-  it('cautious stands on 12 or more and never doubles or splits', () => {
-    expect(aiMove('cautious', c('Ts 2d'), up('Ah'), ALL, fixed(0))).toBe('stand');
-    expect(aiMove('cautious', c('As 2d'), up('Ah'), ALL, fixed(0))).toBe('stand'); // soft 13
-    expect(aiMove('cautious', c('8s 8d'), up('6h'), ALL, fixed(0))).toBe('stand');
-    expect(aiMove('cautious', c('As Ad'), up('6h'), ALL, fixed(0))).toBe('stand'); // soft 12
-    expect(aiMove('cautious', c('5c 6h'), up('6h'), ALL, fixed(0))).toBe('hit');
-    expect(aiMove('cautious', c('2c 3h 4d'), up('Ts'), ALL, fixed(0))).toBe('hit');
+  it('the true count is the running count per deck still unseen', () => {
+    const count = new HiLo(6);
+    expect(count.trueCount).toBe(0);
+    count.see(c('As Kd 5c 2h 3s'));
+    expect(count.running).toBe(1);
+    expect(count.decksLeft).toBeCloseTo(307 / 52, 12);
+    expect(count.trueCount).toBeCloseTo(52 / 307, 12);
+    // two decks seen with a running count of +8: four decks left, true count +2
+    count.reset();
+    const low = freshDeck(2).filter((x) => hiLoTag(x) >= 0);
+    const tens = freshDeck(2).filter((x) => hiLoTag(x) < 0);
+    count.see([...low, ...tens.slice(0, tens.length - 8)]);
+    expect(count.seen).toBe(104 - 8);
+    count.see(c('7s 8s 9s 7h 8h 9h 7d 8d'));
+    expect(count.seen).toBe(104);
+    expect(count.running).toBe(8);
+    expect(count.trueCount).toBeCloseTo(2, 12);
+    count.reset();
+    expect([count.running, count.seen, count.trueCount]).toEqual([0, 0, 0]);
   });
 
-  it('daring hits to 17, doubles a lot and splits most pairs', () => {
-    expect(aiMove('daring', c('Ts 6d'), up('6h'), ALL, fixed(0))).toBe('hit'); // basic strategy stands
-    expect(aiMove('daring', c('Ts 7d'), up('Ah'), ALL, fixed(0))).toBe('stand');
-    expect(aiMove('daring', c('4s 4d'), up('Ah'), ALL, fixed(0))).toBe('split');
-    expect(aiMove('daring', c('5s 5d'), up('Ah'), ALL, fixed(0))).toBe('double');
-    expect(aiMove('daring', c('Ks Qd'), up('6h'), ALL, fixed(0))).toBe('stand');
-    expect(aiMove('daring', c('3s 5d'), up('Th'), ALL, fixed(0))).toBe('double'); // hard 8
-    expect(aiMove('daring', c('As 7d'), up('Th'), ALL, fixed(0))).toBe('double'); // soft 18
-    expect(aiMove('daring', c('3s 5d'), up('Th'), NO_DBL, fixed(0))).toBe('hit');
-    expect(aiMove('daring', c('As 7d'), up('Th'), NO_DBL, fixed(0))).toBe('stand'); // soft 18: already 17 or more
-    expect(aiMove('daring', c('As 5d'), up('Th'), NO_DBL, fixed(0))).toBe('hit'); // soft 16
+  it('counts the cards that show: seat cards and the up card at the deal, the hole card when flipped', () => {
+    const r = new PartyRound(rigged('2s 3s 4s 5s 6s 9h 2d 3d 4d 5d 6d 7h Kc'), [0, 1, 2, 3, 4].map(() => ({ bet: 10, mind: null })));
+    const shown = shownCards(r.deal(), r.dealer);
+    expect(shown).toEqual(c('2s 3s 4s 5s 6s 9h 2d 3d 4d 5d 6d'));
+    for (let s = 0; s < 5; s++) r.act(s, 'stand');
+    const dv = r.playDealer();
+    // the hole 7h, then the dealer's draw (16 takes the King)
+    expect(shownCards(dv, r.dealer)).toEqual(c('7h Kc'));
   });
 
-  it('wildcard follows the book three times in four and deviates legally otherwise', () => {
-    // rng(4) !== 0: the book move
-    expect(aiMove('wildcard', c('Ts 6d'), up('Th'), ALL, fixed(1))).toBe('hit');
-    // rng(4) === 0: some other legal move
-    const dev = aiMove('wildcard', c('Ts 6d'), up('Th'), NO_DBL, fixed(0));
-    expect(dev).toBe('stand');
+  it('playOut counts every card of the round as it shows', () => {
+    const rng = seededRng(4);
+    const shoe = new Shoe(6, 0.8, seededRng(5));
+    const count = new HiLo(6);
+    let all: Card[] = [];
+    for (let i = 0; i < 40; i++) {
+      const r = new PartyRound(shoe, MINDSETS.map((mind) => ({ bet: 10, mind })));
+      playOut(r, [1e9, 1e9, 1e9, 1e9, 1e9], rng, count);
+      all = [...all, ...r.dealer, ...r.seats.flatMap((s) => s.round.hands.flatMap((h) => h.cards))];
+      expect(count.seen).toBe(all.length);
+      expect(count.running).toBe(all.reduce((a, x) => a + hiLoTag(x), 0));
+    }
+  });
+});
+
+describe('mindsets', () => {
+  it('calculated is basic strategy plus the index plays (one true count above zero: only 16 v 10 differs)', () => {
+    for (const h of HANDS)
+      for (const u of UPS)
+        for (const can of [ALL, NO_DBL]) {
+          const m = aiMove('calculated', h, u, can, at(0.5), fixed(0));
+          const v = handValue(h);
+          const sixteenVsTen = !v.soft && v.total === 16 && bjValue(u) === 10 && !(can.split && bjValue(h[0]) === 8);
+          expect(m).toBe(sixteenVsTen ? 'stand' : basicStrategy(h, u, can.double, can.split));
+        }
+  });
+
+  it('calculated deviates at the indexes', () => {
+    // [hand, up card, true count just short, move there, true count at the index, deviation]
+    const cases: [string, string, number, string, number, string][] = [
+      ['Ts 6d', 'Kh', -0.5, 'hit', 0, 'stand'],
+      ['9s 6d', 'Th', 3.9, 'hit', 4, 'stand'],
+      ['Ts 2d', '3h', 1.9, 'hit', 2, 'stand'],
+      ['Ts 2d', '2h', 2.9, 'hit', 3, 'stand'],
+      ['9s 7d', '9h', 4.9, 'hit', 5, 'stand'],
+      ['6s 5d', 'Ah', 0.9, 'hit', 1, 'double'],
+      ['6s 4d', 'Th', 3.9, 'hit', 4, 'double'],
+      ['6s 4d', 'Ah', 3.9, 'hit', 4, 'double'],
+      ['5s 4d', '2h', 0.9, 'hit', 1, 'double'],
+      ['5s 4d', '7h', 2.9, 'hit', 3, 'double'],
+      ['Ts 3d', '2h', -0.9, 'stand', -1, 'hit'],
+      ['Ts 2d', '4h', 0, 'stand', -0.1, 'hit'],
+      ['Ts 2d', '5h', -1.9, 'stand', -2, 'hit'],
+      ['Ts 2d', '6h', -0.9, 'stand', -1, 'hit'],
+      ['Ts 3d', '3h', -1.9, 'stand', -2, 'hit'],
+      ['Ts Kd', '5h', 4.9, 'stand', 5, 'split'],
+      ['Qs Jd', '6h', 3.9, 'stand', 4, 'split'],
+    ];
+    for (const [h, u, short, book, idx, dev] of cases) {
+      expect(countedMove(c(h), up(u), ALL, short), `${h} v ${u} @${short}`).toBe(book);
+      expect(countedMove(c(h), up(u), ALL, idx), `${h} v ${u} @${idx}`).toBe(dev);
+      expect(aiMove('calculated', c(h), up(u), ALL, at(idx), fixed(0))).toBe(dev);
+    }
+    // a double it can't make falls back to the hit; tens it can't split stand
+    expect(countedMove(c('6s 5d'), up('Ah'), NO_DBL, 3)).toBe('hit');
+    expect(countedMove(c('Ts Kd'), up('5h'), NO_DBL, 6)).toBe('stand');
+    // multi-card hands use the hard-total indexes too
+    expect(countedMove(c('9s 4d 3c'), up('Th'), NO_DBL, 0.2)).toBe('stand');
+    // a pair of 8s still splits against a ten at any count
+    for (const tc of [-3, 0, 5]) expect(countedMove(c('8s 8d'), up('Th'), ALL, tc)).toBe('split');
+    // soft hands keep the book
+    expect(countedMove(c('As 5d'), up('Th'), ALL, 6)).toBe('hit');
+  });
+
+  it('aggressive presses: soft doubles, every 9–11, more splits', () => {
+    expect(aiMove('aggressive', c('As 2d'), up('2h'), ALL, at(0), fixed(0))).toBe('double'); // soft 13 v 2
+    expect(aiMove('aggressive', c('As 7d'), up('2h'), ALL, at(0), fixed(0))).toBe('double'); // soft 18 v 2
+    expect(aiMove('aggressive', c('As 7d'), up('7h'), ALL, at(0), fixed(0))).toBe('stand');
+    expect(aiMove('aggressive', c('As 7d'), up('2h'), NO_DBL, at(0), fixed(0))).toBe('stand');
+    expect(aiMove('aggressive', c('5s 4d'), up('Ah'), ALL, at(0), fixed(0))).toBe('double'); // 9 v A
+    expect(aiMove('aggressive', c('5s 5d'), up('Th'), ALL, at(0), fixed(0))).toBe('double'); // 10 v 10
+    expect(aiMove('aggressive', c('6s 5d'), up('Ah'), ALL, at(0), fixed(0))).toBe('double'); // 11 v A
+    expect(aiMove('aggressive', c('9s 9d'), up('Ah'), ALL, at(0), fixed(0))).toBe('split');
+    expect(aiMove('aggressive', c('9s 9d'), up('7h'), ALL, at(0), fixed(0))).toBe('split');
+    expect(aiMove('aggressive', c('6s 6d'), up('7h'), ALL, at(0), fixed(0))).toBe('split');
+    expect(aiMove('aggressive', c('2s 2d'), up('7h'), ALL, at(0), fixed(0))).toBe('split');
+    expect(aiMove('aggressive', c('7s 7d'), up('8h'), ALL, at(0), fixed(0))).toBe('hit');
+    expect(aiMove('aggressive', c('Ts Kd'), up('6h'), ALL, at(0), fixed(0))).toBe('stand');
+    expect(aiMove('aggressive', c('Ts 2d'), up('3h'), ALL, at(0), fixed(0))).toBe('hit');
+    expect(aiMove('aggressive', c('Ts 2d'), up('4h'), ALL, at(0), fixed(0))).toBe('stand');
+    expect(aiMove('aggressive', c('Ts 6d'), up('Th'), ALL, at(5), fixed(0))).toBe('hit'); // it doesn't count
+  });
+
+  it('conservative avoids variance: few doubles, Aces and 8s only, stands early', () => {
+    expect(aiMove('conservative', c('Ts 2d'), up('2h'), ALL, at(0), fixed(0))).toBe('stand');
+    expect(aiMove('conservative', c('Ts 6d'), up('9h'), ALL, at(0), fixed(0))).toBe('stand');
+    expect(aiMove('conservative', c('9s 6d'), up('Th'), ALL, at(0), fixed(0))).toBe('stand');
+    expect(aiMove('conservative', c('Ts 6d'), up('Ah'), ALL, at(0), fixed(0))).toBe('hit');
+    expect(aiMove('conservative', c('Ts 3d'), up('7h'), ALL, at(0), fixed(0))).toBe('hit');
+    expect(aiMove('conservative', c('As 7d'), up('4h'), ALL, at(0), fixed(0))).toBe('stand'); // no soft double
+    expect(aiMove('conservative', c('As 6d'), up('4h'), ALL, at(0), fixed(0))).toBe('hit');
+    expect(aiMove('conservative', c('5c 6h'), up('6h'), ALL, at(0), fixed(0))).toBe('double');
+    expect(aiMove('conservative', c('5c 6h'), up('Th'), ALL, at(0), fixed(0))).toBe('hit');
+    expect(aiMove('conservative', c('5c 4h'), up('4h'), ALL, at(0), fixed(0))).toBe('hit'); // 9: no double
+    expect(aiMove('conservative', c('8s 8d'), up('Th'), ALL, at(0), fixed(0))).toBe('split');
+    expect(aiMove('conservative', c('As Ad'), up('6h'), ALL, at(0), fixed(0))).toBe('split');
+    expect(aiMove('conservative', c('9s 9d'), up('6h'), ALL, at(0), fixed(0))).toBe('stand');
+    expect(aiMove('conservative', c('2s 2d'), up('4h'), ALL, at(0), fixed(0))).toBe('hit');
+    expect(aiMove('conservative', c('7s 7d'), up('6h'), ALL, at(0), fixed(0))).toBe('stand');
+  });
+
+  it('hybrid plays like the counter, but leans with its streak on close spots', () => {
+    const rng = seededRng(3);
+    for (const h of HANDS)
+      for (const u of UPS)
+        for (const tc of [-2.5, -1, 0, 0.5, 2, 4.5])
+          expect(aiMove('hybrid', h, u, ALL, at(tc, rng(3) - 1), fixed(0))).toBe(countedMove(h, u, ALL, tc));
+    // 16 v 10 near its index: presses after wins, plays safe after losses
+    expect(aiMove('hybrid', c('9s 7d'), up('Th'), ALL, at(0.5, 2), fixed(0))).toBe('hit');
+    expect(aiMove('hybrid', c('9s 7d'), up('Th'), ALL, at(-0.5, -3), fixed(0))).toBe('stand');
+    expect(aiMove('hybrid', c('9s 7d'), up('Th'), ALL, at(3, 2), fixed(0))).toBe('stand'); // a clear spot
+    // 11 v A near its index
+    expect(aiMove('hybrid', c('6s 5d'), up('Ah'), ALL, at(0.2, 2), fixed(0))).toBe('double');
+    expect(aiMove('hybrid', c('6s 5d'), up('Ah'), ALL, at(1.5, -2), fixed(0))).toBe('hit');
+    // tens against a 6 near its index
+    expect(aiMove('hybrid', c('Ts Kd'), up('6h'), ALL, at(3.5, 2), fixed(0))).toBe('split');
+    expect(aiMove('hybrid', c('Ts Kd'), up('6h'), ALL, at(4.2, -2), fixed(0))).toBe('stand');
+    // soft doubles
+    expect(aiMove('hybrid', c('As 7d'), up('4h'), ALL, at(0, -2), fixed(0))).toBe('stand');
+    expect(aiMove('hybrid', c('As 6d'), up('4h'), ALL, at(0, -2), fixed(0))).toBe('hit');
+    expect(aiMove('hybrid', c('As 7d'), up('4h'), ALL, at(0, 2), fixed(0))).toBe('double');
+    // clear spots don't move
+    for (const s of [-4, 4]) {
+      expect(aiMove('hybrid', c('6s 5d'), up('6h'), ALL, at(0, s), fixed(0))).toBe('double');
+      expect(aiMove('hybrid', c('8s 8d'), up('Th'), ALL, at(0, s), fixed(0))).toBe('split');
+    }
+    expect(closeSpot(c('8s 8d'), up('Th'), ALL, 0)).toBeNull();
+    expect(closeSpot(c('9s 7d'), up('Th'), ALL, 0)).toEqual({ press: 'hit', tight: 'stand' });
+  });
+
+  it('hunch follows the book three times in four and deviates legally otherwise', () => {
+    expect(aiMove('hunch', c('Ts 6d'), up('Th'), ALL, at(0), fixed(1))).toBe('hit');
+    expect(aiMove('hunch', c('Ts 6d'), up('Th'), NO_DBL, at(0), fixed(0))).toBe('stand');
     // never hits or doubles a hard 19+
-    for (let k = 0; k < 4; k++) expect(['stand']).toContain(aiMove('wildcard', c('Ts 9d'), up('6h'), NO_DBL, fixed(0)));
+    for (let k = 0; k < 4; k++) expect(aiMove('hunch', c('Ts 9d'), up('6h'), NO_DBL, at(0), fixed(k))).toBe('stand');
     const rng = seededRng(7);
     let off = 0;
     const n = 4000;
-    for (let i = 0; i < n; i++) if (aiMove('wildcard', c('Ts 6d'), up('Th'), ALL, rng) !== 'hit') off++;
+    for (let i = 0; i < n; i++) if (aiMove('hunch', c('Ts 6d'), up('Th'), ALL, at(0), rng) !== 'hit') off++;
     expect(off / n).toBeGreaterThan(0.2);
     expect(off / n).toBeLessThan(0.3);
   });
 
-  it('every style always picks a legal move', () => {
+  it('every mindset always picks a legal move', () => {
     const rng = seededRng(11);
     const shoe = new Shoe(6, 0.75, seededRng(3));
     for (let i = 0; i < 3000; i++) {
@@ -74,32 +233,90 @@ describe('AI styles', () => {
       const cards: Card[] = Array.from({ length: n }, () => shoe.draw());
       if (handValue(cards).total >= 21) continue;
       const pair = n === 2 && bjValue(cards[0]) === bjValue(cards[1]);
-      const can: Actions = { hit: true, stand: true, double: n === 2 && rng(2) === 0, split: pair && rng(2) === 0 };
-      for (const s of ['bookish', 'cautious', 'daring', 'wildcard'] as Style[]) {
-        const m = aiMove(s, cards, shoe.draw(), can, rng);
-        expect(can[m]).toBe(true);
+      const can: Actions = { hit: rng(8) !== 0, stand: true, double: n === 2 && rng(2) === 0, split: pair && rng(2) === 0 };
+      for (const m of MINDSETS) {
+        const move = aiMove(m, cards, shoe.draw(), can, at(rng(13) - 6, rng(9) - 4), rng);
+        expect(can[move], `${m} ${move}`).toBe(true);
       }
     }
   });
 
-  it('bets 10 to 200 in steps of 5, by style, within the chips it has', () => {
+  it('bets 10 to 200 in steps of 5 by mindset; the counter spreads with the true count', () => {
     const rng = seededRng(5);
-    const ranges: Record<Style, [number, number]> = { bookish: [25, 100], cautious: [10, 50], daring: [50, 200], wildcard: [10, 200] };
-    for (const [s, [lo, hi]] of Object.entries(ranges) as [Style, [number, number]][]) {
+    const ranges: Record<Mindset, [number, number]> = { calculated: [10, 120], aggressive: [60, 150], conservative: [10, 30], hybrid: [30, 200], hunch: [10, 120] };
+    for (const m of MINDSETS) {
+      const [lo, hi] = ranges[m];
+      const mem = newMemory();
       for (let i = 0; i < 300; i++) {
-        const b = aiBet(s, 10000, rng);
+        const b = aiBet(m, 10000, mem, rng(11) - 5, rng);
         expect(b % 5).toBe(0);
         expect(b).toBeGreaterThanOrEqual(lo);
         expect(b).toBeLessThanOrEqual(hi);
+        remember(mem, m, rng(3) === 0 ? 2 * b : -b);
       }
     }
-    expect(aiBet('daring', 60, fixed(6))).toBe(60);
-    expect(aiBet('daring', 7, fixed(0))).toBe(0);
+    const spread = [-2, 0, 0.5, 1, 1.9, 2, 2.9, 3, 6].map((tc) => aiBet('calculated', 10000, newMemory(), tc, rng));
+    expect(spread).toEqual([10, 10, 30, 30, 30, 60, 60, 120, 120]);
+    // hybrid presses half of a win, back to one unit after a loss
+    const mem = newMemory();
+    remember(mem, 'hybrid', 100);
+    expect(aiBet('hybrid', 10000, mem, 0, rng)).toBe(80);
+    remember(mem, 'hybrid', -80);
+    expect(aiBet('hybrid', 10000, mem, 0, rng)).toBe(30);
+    // never more than it has; nothing under the minimum
+    for (const m of MINDSETS) {
+      expect(aiBet(m, 45, newMemory(), 5, rng)).toBeLessThanOrEqual(45);
+      expect(aiBet(m, 7, newMemory(), 5, rng)).toBe(0);
+    }
+    expect(isBroke(9)).toBe(true);
+    expect(isBroke(10)).toBe(false);
+  });
+});
+
+describe('the circuit', () => {
+  const names = new Set(ROSTER.map((p) => p.name));
+
+  it('seats four different regulars from the roster', () => {
+    expect(names.size).toBe(ROSTER.length);
+    for (let s = 0; s < 300; s++) {
+      const seated = drawRegulars(4, seededRng(s));
+      expect(seated).toHaveLength(4);
+      expect(new Set(seated.map((p) => p.name)).size).toBe(4);
+      for (const p of seated) {
+        expect(names.has(p.name)).toBe(true);
+        expect(p.bank).toBeGreaterThan(0);
+      }
+    }
+    // the whole pool, and no more
+    expect(new Set(drawRegulars(99, seededRng(1)).map((p) => p.name)).size).toBe(ROSTER.length);
+  });
+
+  it('never draws a regular already at the table', () => {
+    const rng = seededRng(8);
+    for (let i = 0; i < 300; i++) {
+      const seated = drawRegulars(4, rng).map((p) => p.name);
+      for (const p of drawRegulars(5, rng, seated)) expect(seated).not.toContain(p.name);
+      const next = replacementFor(seated, rng);
+      expect(seated).not.toContain(next.name);
+      expect(names.has(next.name)).toBe(true);
+    }
+  });
+
+  it('a busted regular leaves and a newcomer takes the seat (always four different faces)', () => {
+    const rng = seededRng(12);
+    const table = drawRegulars(4, rng);
+    for (let i = 0; i < 500; i++) {
+      const seat = rng(4);
+      const next = replacementFor(table.map((p) => p.name), rng);
+      expect(next.name).not.toBe(table[seat].name);
+      table[seat] = next;
+      expect(new Set(table.map((p) => p.name)).size).toBe(4);
+    }
   });
 });
 
 describe('PartyRound', () => {
-  const seats = (bets: number[]): SeatIn[] => bets.map((bet, i) => ({ bet, style: i === 2 ? null : 'bookish' }));
+  const seats = (bets: number[]): SeatIn[] => bets.map((bet, i) => ({ bet, mind: i === 2 ? null : 'calculated' }));
 
   it('deals in seat order from first base, up card, second round, hole card', () => {
     const r = new PartyRound(rigged('2s 3s 4s 5s 6s 9h 2d 3d 4d 5d 6d 7h'), seats([10, 10, 10, 10, 10]));
@@ -157,6 +374,8 @@ describe('PartyRound', () => {
     expect(ev.find((e) => e.t === 'peek')).toEqual({ t: 'peek', dealerBJ: true });
     expect([0, 1, 2, 3, 4].some((s) => r.live(s))).toBe(false);
     expect(r.playDealer()).toEqual([]);
+    // the hole card shows at once (and is counted)
+    expect(shownCards(ev, r.dealer)).toContain(parseCard('Kh'));
     const res = r.settle();
     expect(res.map((s) => s.hands[0].outcome)).toEqual(['push', 'lose', 'lose', 'lose', 'lose']);
   });
@@ -171,12 +390,12 @@ describe('PartyRound', () => {
     expect(r.settle().map((s) => s.hands[0].outcome)).toEqual(['blackjack', 'bust', 'bust', 'bust', 'bust']);
   });
 
-  it('a full table played by the AI styles settles each seat against the dealer', () => {
+  it('a full table played by the mindsets settles each seat against the dealer', () => {
     const rng = seededRng(21);
-    const styles: (Style | null)[] = ['daring', 'wildcard', null, 'cautious', 'bookish'];
+    const minds: (Mindset | null)[] = ['aggressive', 'hunch', null, 'conservative', 'hybrid'];
     for (let i = 0; i < 400; i++) {
-      const r = new PartyRound(new Shoe(6, 0.75, seededRng(100 + i)), styles.map((style) => ({ bet: 20, style })));
-      const res = playOut(r, [500, 500, 500, 500, 500], rng);
+      const r = new PartyRound(new Shoe(6, 0.75, seededRng(100 + i)), minds.map((mind) => ({ bet: 20, mind, streak: rng(7) - 3 })));
+      const res = playOut(r, [500, 500, 500, 500, 500], rng, new HiLo(6));
       const d = handValue(r.dealer).total;
       const dealerBJ = r.dealer.length === 2 && d === 21;
       res.forEach((s, seat) => {
@@ -206,7 +425,7 @@ describe('PartyRound', () => {
         else if (m === 'double') bj.double();
         else bj.split();
       }
-      const pr = new PartyRound(new Shoe(6, 0.75, seededRng(500 + i)), [{ bet: 10, style: null }]);
+      const pr = new PartyRound(new Shoe(6, 0.75, seededRng(500 + i)), [{ bet: 10, mind: null }]);
       const [seat] = playOut(pr, [1e9], seededRng(1));
       expect(seat.hands).toEqual(bj.hands.map((h) => ({ outcome: h.outcome, bet: h.bet, ret: h.ret })));
       expect(pr.dealer).toEqual(bj.dealer);
@@ -223,16 +442,16 @@ describe('PartyRound', () => {
 });
 
 describe('RTP (seeded simulation)', () => {
-  it('basic strategy returns about 99.5%; the other styles give more to the house', () => {
+  it('basic strategy returns about 99.5%; the loose mindsets give more to the house', () => {
     const rng = seededRng(2024);
     const shoe = new Shoe(6, 0.8, seededRng(99));
-    const styles: (Style | null)[] = ['daring', 'wildcard', null, 'cautious', 'bookish'];
+    const minds: (Mindset | null)[] = ['aggressive', 'hunch', null, 'conservative', 'calculated'];
     const wager = [0, 0, 0, 0, 0];
     const back = [0, 0, 0, 0, 0];
     const N = 120000;
     for (let i = 0; i < N; i++) {
       if (shoe.needsShuffle) shoe.shuffle();
-      const r = new PartyRound(shoe, styles.map((style) => ({ bet: 10, style })));
+      const r = new PartyRound(shoe, minds.map((mind) => ({ bet: 10, mind })));
       const res = playOut(r, [1e9, 1e9, 1e9, 1e9, 1e9], rng);
       res.forEach((s, k) => {
         wager[k] += s.wager;
@@ -240,14 +459,51 @@ describe('RTP (seeded simulation)', () => {
       });
     }
     const rtp = back.map((b, k) => b / wager[k]);
-    // the player's seat and the bookish regular both play the book
+    // the player's seat plays the book
     expect(rtp[2]).toBeGreaterThan(0.985);
     expect(rtp[2]).toBeLessThan(1.01);
+    // calculated without a count (true count 0) is the book plus standing on 16 v 10
     expect(rtp[4]).toBeGreaterThan(0.985);
     expect(rtp[4]).toBeLessThan(1.01);
-    // cautious and daring leave a lot more to the house
-    expect(rtp[3]).toBeLessThan(rtp[4] - 0.02);
-    expect(rtp[0]).toBeLessThan(rtp[4] - 0.02);
-    console.log('RTP by seat (daring, wildcard, player, cautious, bookish):', rtp.map((x) => (x * 100).toFixed(2)).join(' / '));
+    // the hunch's surprises cost a lot
+    expect(rtp[1]).toBeLessThan(rtp[2] - 0.02);
+    console.log('RTP by seat (aggressive, hunch, player, conservative, calculated without a count):', rtp.map((x) => (x * 100).toFixed(2)).join(' / '));
+  });
+
+  it('the counting calculated regular is the best mindset and beats flat basic strategy', () => {
+    // one seat per mindset and a flat basic-strategy seat, every bet sized by the mindset
+    const rng = seededRng(77);
+    const shoe = new Shoe(6, 0.8, seededRng(78));
+    const count = new HiLo(6);
+    const minds: (Mindset | null)[] = [...MINDSETS, null];
+    const mems = minds.map(() => newMemory());
+    const wager = minds.map(() => 0);
+    const back = minds.map(() => 0);
+    const N = 300000;
+    for (let i = 0; i < N; i++) {
+      if (shoe.needsShuffle) {
+        shoe.shuffle();
+        count.reset();
+      }
+      const tc = count.trueCount;
+      const seatsIn = minds.map((mind, k) => ({ bet: mind ? aiBet(mind, 1e9, mems[k], tc, rng) : 10, mind, streak: mems[k].streak }));
+      const res = playOut(new PartyRound(shoe, seatsIn), minds.map(() => 1e9), rng, count);
+      res.forEach((s, k) => {
+        wager[k] += s.wager;
+        back[k] += s.ret;
+        const mind = minds[k];
+        if (mind) remember(mems[k], mind, s.ret - s.wager);
+      });
+    }
+    const ret = back.map((b, k) => b / wager[k] - 1);
+    console.log(`Return per unit bet: ${minds.map((m, k) => `${m ?? 'flat basic'} ${(ret[k] * 100).toFixed(2)}%`).join(' · ')}`);
+    const [calculated, aggressive, conservative, hybrid, hunch, flat] = ret;
+    for (const other of [aggressive, conservative, hybrid, hunch, flat]) expect(calculated).toBeGreaterThan(other);
+    // counting with a bet spread turns the edge around
+    expect(calculated).toBeGreaterThan(0);
+    expect(calculated - flat).toBeGreaterThan(0.005);
+    expect(flat).toBeGreaterThan(-0.015);
+    expect(flat).toBeLessThan(0.01);
+    expect(hunch).toBeLessThan(flat - 0.03);
   });
 });

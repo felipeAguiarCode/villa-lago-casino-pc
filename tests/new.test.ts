@@ -218,7 +218,9 @@ describe('Trump 21', () => {
     d.player = [10, 11, 5];
     expect(d.outcome()).toBe(-1);
     d.dealer = [9, 8, 7, 2];
-    expect(d.outcome()).toBe(1); // both bust on 26: ties go to the player
+    expect(d.outcome()).toBe(-1); // both bust on 26: ties go to the dealer
+    d.dealer = [9, 8, 7, 3];
+    expect(d.outcome()).toBe(1); // both bust: the lower total wins
   });
   it('trumps change the rules', () => {
     const d = new Duel(seededRng(3));
@@ -241,7 +243,7 @@ describe('Trump 21', () => {
     expect(d.outcome()).toBe(-1);
     expect(d.payout(20)).toBe(10);
   });
-  it('is balanced: following the hint without trumps loses a little (0% to -15%)', () => {
+  it('is against the house: the simple odds rule without trumps loses clearly (−15% to −45%)', () => {
     let ev = 0;
     const N = 4000;
     for (let s = 0; s < N; s++) {
@@ -255,8 +257,9 @@ describe('Trump 21', () => {
       }
       ev += d.outcome();
     }
-    expect(ev / N).toBeLessThan(0);
-    expect(ev / N).toBeGreaterThan(-0.15);
+    // ties go to the dealer, and he plays his trumps; the strong strategy's figures are in tests/trump21.test.ts
+    expect(ev / N).toBeLessThan(-0.15);
+    expect(ev / N).toBeGreaterThan(-0.45);
   });
   it('dealer AI always finishes the round', () => {
     for (let s = 0; s < 300; s++) {
@@ -283,9 +286,9 @@ describe('Trump 21 — trump variations', () => {
     d.trumps.dealer = [];
     return d;
   };
-  it('has 29 trumps with unique ids', () => {
-    expect(TRUMPS.length).toBe(29);
-    expect(new Set(TRUMPS.map((t) => t.id)).size).toBe(29);
+  it('has 41 trumps with unique ids', () => {
+    expect(TRUMPS.length).toBe(41);
+    expect(new Set(TRUMPS.map((t) => t.id)).size).toBe(41);
   });
   it('draw control: feather, calls, twin, redraw', () => {
     const d = fresh(5, ['feather', 'twin', 'redraw']);

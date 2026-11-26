@@ -276,3 +276,154 @@ export function placard(title: string) {
   g.add(base, panel);
   return g;
 }
+
+/**
+ * A lit cigar resting on a heavy black glazed ashtray with a gold lip (the foot over the well, the head
+ * over the table): tobacco-leaf wrapper, a red and gold band with
+ * no brand, grey ash at the tip, a glowing ember and a thin thread of smoke rising from it.
+ * Ashtray ≈ 15 cm across, cigar ≈ 15 cm long (Robusto-Churchill size).
+ */
+export function cigarAshtray() {
+  const g = new THREE.Group();
+
+  // the ashtray: a heavy black glazed dish with a sunken well and a gold lip
+  const tray = lathe(
+    [[0, 0], [0.7, 0], [0.74, 0.03], [0.76, 0.2], [0.7, 0.22], [0.56, 0.2], [0.52, 0.09], [0, 0.085]],
+    new THREE.MeshPhysicalMaterial({ color: '#141418', roughness: 0.22, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 1.3 }),
+    64,
+  );
+  const lip = new THREE.Mesh(
+    new THREE.TorusGeometry(0.73, 0.018, 10, 72),
+    new THREE.MeshStandardMaterial({ color: '#d8b660', metalness: 0.9, roughness: 0.25 }),
+  );
+  lip.rotation.x = Math.PI / 2;
+  lip.position.y = 0.212;
+  g.add(tray, lip);
+  // a little grey ash in the well
+  const ash = new THREE.Mesh(new THREE.CircleGeometry(0.24, 24), new THREE.MeshStandardMaterial({ color: '#8d8882', roughness: 1, transparent: true, opacity: 0.6 }));
+  ash.rotation.x = -Math.PI / 2;
+  ash.position.set(0.12, 0.092, -0.05);
+  g.add(ash);
+
+  // the cigar, built along +x, then laid in a rest of the rim
+  const cigar = new THREE.Group();
+  const R = 0.1;
+  const L = 1.5;
+  const leaf = canvasTex(512, 128, (c) => {
+    const grd = c.createLinearGradient(0, 0, 0, 128);
+    grd.addColorStop(0, '#6b3f1f');
+    grd.addColorStop(0.5, '#8a5428');
+    grd.addColorStop(1, '#5a3418');
+    c.fillStyle = grd;
+    c.fillRect(0, 0, 512, 128);
+    // the wrapper's spiral seam and fine leaf veins
+    c.strokeStyle = 'rgba(40, 20, 8, 0.45)';
+    c.lineWidth = 2;
+    for (let x = -128; x < 640; x += 46) {
+      c.beginPath();
+      c.moveTo(x, 0);
+      c.lineTo(x + 128, 128);
+      c.stroke();
+    }
+    c.strokeStyle = 'rgba(160, 110, 60, 0.22)';
+    c.lineWidth = 1;
+    for (let i = 0; i < 60; i++) {
+      const x = (i * 97) % 512;
+      const y = (i * 53) % 128;
+      c.beginPath();
+      c.moveTo(x, y);
+      c.quadraticCurveTo(x + 14, y + 6, x + 30, y + (i % 2 ? 10 : -6));
+      c.stroke();
+    }
+  });
+  leaf.wrapS = THREE.RepeatWrapping;
+  const wrapper = new THREE.MeshStandardMaterial({ map: leaf, roughness: 0.78, metalness: 0 });
+  // body with a rounded head (the cap) at x = 0 and the lit foot at x = L
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R, L - 0.24, 32, 1, true), wrapper);
+  body.rotation.z = Math.PI / 2;
+  body.position.x = (L - 0.24) / 2 + 0.06;
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(R, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), wrapper);
+  cap.rotation.z = Math.PI / 2;
+  cap.position.x = 0.06;
+  cap.scale.set(1, 0.6, 1);
+  // the band: red and gold, near the head, with no brand
+  const bandTex = canvasTex(512, 64, (c) => {
+    c.fillStyle = '#9c1420';
+    c.fillRect(0, 0, 512, 64);
+    c.fillStyle = '#d8b660';
+    c.fillRect(0, 0, 512, 10);
+    c.fillRect(0, 54, 512, 10);
+    c.fillStyle = 'rgba(216, 182, 96, 0.85)';
+    for (let x = 8; x < 512; x += 32) {
+      c.beginPath();
+      c.moveTo(x, 32);
+      c.lineTo(x + 8, 22);
+      c.lineTo(x + 16, 32);
+      c.lineTo(x + 8, 42);
+      c.closePath();
+      c.fill();
+    }
+  });
+  const band = new THREE.Mesh(
+    new THREE.CylinderGeometry(R * 1.04, R * 1.04, 0.2, 32, 1, true),
+    new THREE.MeshStandardMaterial({ map: bandTex, roughness: 0.35, metalness: 0.45 }),
+  );
+  band.rotation.z = Math.PI / 2;
+  band.position.x = 0.3;
+  // the lit foot: a ring of ember, then soft grey ash
+  const ember = new THREE.Mesh(
+    new THREE.CylinderGeometry(R * 0.99, R * 0.99, 0.035, 32),
+    new THREE.MeshStandardMaterial({ color: '#ff5a1a', emissive: new THREE.Color('#ff3c00'), emissiveIntensity: 2.2, roughness: 0.9 }),
+  );
+  ember.rotation.z = Math.PI / 2;
+  ember.position.x = L - 0.18 + 0.0175;
+  const ashTip = new THREE.Mesh(
+    new THREE.CylinderGeometry(R * 0.93, R * 0.98, 0.16, 32),
+    new THREE.MeshStandardMaterial({ color: '#a7a39c', roughness: 1, metalness: 0 }),
+  );
+  ashTip.rotation.z = Math.PI / 2;
+  ashTip.position.x = L - 0.08;
+  const tipCap = new THREE.Mesh(new THREE.CircleGeometry(R * 0.93, 32), new THREE.MeshStandardMaterial({ color: '#8f8b85', roughness: 1 }));
+  tipCap.rotation.y = Math.PI / 2;
+  tipCap.position.x = L;
+  cigar.add(body, cap, band, ember, ashTip, tipCap);
+
+  // a thin thread of smoke from the foot (soft sprites drifting up and fading, on a loop)
+  const puff = canvasTex(64, 64, (c) => {
+    const r = c.createRadialGradient(32, 32, 0, 32, 32, 32);
+    r.addColorStop(0, 'rgba(235, 235, 240, 0.55)');
+    r.addColorStop(1, 'rgba(235, 235, 240, 0)');
+    c.fillStyle = r;
+    c.fillRect(0, 0, 64, 64);
+  });
+  const smoke = new THREE.Group();
+  smoke.position.set(L + 0.02, 0, 0);
+  const t0 = performance.now();
+  const puffs = Array.from({ length: 9 }, (_, i) => {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, transparent: true, depthWrite: false, opacity: 0 }));
+    smoke.add(s);
+    return { s, phase: i / 9 };
+  });
+  const drift = () => {
+    const t = (performance.now() - t0) / 1000;
+    for (const p of puffs) {
+      const k = (t / 4.2 + p.phase) % 1;
+      p.s.position.set(Math.sin(k * 5 + p.phase * 9) * 0.07 * k, 0.04 + k * 1.1, Math.cos(k * 4 + p.phase * 7) * 0.05 * k);
+      const size = 0.08 + k * 0.32;
+      p.s.scale.set(size, size, size);
+      (p.s.material as THREE.SpriteMaterial).opacity = Math.sin(Math.PI * k) * 0.5 * (1 - k * 0.4);
+    }
+  };
+  // the first puff moves them all, each frame it is drawn
+  puffs[0].s.onBeforeRender = drift;
+  cigar.add(smoke);
+
+  // resting in a notch of the rim, level: the lit foot over the well, the head out over the table
+  const yaw = Math.PI + 0.35;
+  const dir = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+  cigar.position.copy(dir.clone().multiplyScalar(-L * 0.86)).setY(0.2);
+  cigar.rotation.y = yaw;
+  cigar.rotation.z = -0.035;
+  g.add(cigar);
+  return g;
+}

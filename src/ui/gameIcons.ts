@@ -136,6 +136,10 @@ export const GAME_ICONS: Record<string, string> = {
     `<path ${ME} d="M14 56h36l-4-8H18zM20 48l2-14q-6-6-2-14l8-10 4 4 10 2q6 4 4 10l-6-2-2 4q8 6 6 20z"/><circle cx="35" cy="17" r="1.8" ${INK}/>` +
       `<path ${ACC} d="M22 8l4-6 4 6z"/><rect x="21" y="4" width="10" height="3" rx="1.5" ${ACC}/>`,
   ),
+  partyhorses: svg(
+    `<path ${ME} transform="translate(6 8) scale(0.78)" d="M14 56h36l-4-8H18zM20 48l2-14q-6-6-2-14l8-10 4 4 10 2q6 4 4 10l-6-2-2 4q8 6 6 20z"/>` +
+      [10, 22, 32, 42, 54].map((x, i) => `<circle cx="${x}" cy="${i === 2 ? 8 : i % 4 ? 11 : 15}" r="${i === 2 ? 4 : 3.2}" ${ACC}/>`).join(''),
+  ),
   highlow: svg(
     `<path ${ACC} d="M10 28l10-14 10 14h-6v12h-8V28z"/><path ${ME} d="M34 36l10 14 10-14h-6V24h-8v12z"/>` + card(32, 44, 14, 20, 0, text(32, 48, '?', 10)),
   ),
@@ -150,6 +154,55 @@ export const GAME_ICONS: Record<string, string> = {
   partybj: svg(
     card(14, 40, 16, 22, -18) + card(32, 36, 16, 22, 0, text(32, 39, '21', 8)) + card(50, 40, 16, 22, 18) +
       [14, 32, 50].map((x) => `<circle cx="${x}" cy="${x === 32 ? 16 : 22}" r="4" ${ACC}/>`).join(''),
+  ),
+  partytrump: svg(
+    card(22, 40, 18, 26, -10, text(22, 45, '11', 10)) + card(40, 40, 18, 26, 10, '', ACC) + star(40, 40, 6, INK) +
+      [10, 22, 32, 42, 54].map((x, i) => `<circle cx="${x}" cy="${i === 2 ? 12 : i % 4 ? 16 : 22}" r="${i === 2 ? 4.5 : 3.5}" ${ACC}/>`).join(''),
+  ),
+  partyuth: svg(
+    card(24, 40, 18, 26, -10, text(24, 45, 'A', 12)) + card(40, 40, 18, 26, 10, text(40, 45, 'A', 12)) +
+      [10, 22, 32, 42, 54].map((x, i) => `<circle cx="${x}" cy="${i === 2 ? 12 : i % 4 ? 16 : 22}" r="${i === 2 ? 4.5 : 3.5}" ${ACC}/>`).join(''),
+  ),
+  partytcp: svg(
+    fan(3, 32, 42, 18, 26, 14) + suit('s', 32, 42, 9) +
+      [10, 22, 32, 42, 54].map((x, i) => `<circle cx="${x}" cy="${i === 2 ? 10 : i % 4 ? 14 : 20}" r="${i === 2 ? 4.5 : 3.5}" ${ACC}/>`).join(''),
+  ),
+  stud7: svg(
+    card(14, 36, 14, 20, 0, '', INK) + card(24, 36, 14, 20, 0, '', INK) +
+      [34, 44, 54].map((x, i) => card(x, 36, 14, 20, 0, text(x, 40, ['7', '7', 'K'][i], 9))).join('') +
+      text(32, 60, '7 STUD', 10, ACC, 'Barlow Condensed, sans-serif'),
+  ),
+  partystud: svg(
+    card(18, 42, 14, 20, -8, '', INK) + card(30, 40, 14, 20, 0, text(30, 44, '7', 9)) + card(42, 40, 14, 20, 0, text(42, 44, '7', 9)) +
+      card(50, 42, 14, 20, 8, text(50, 46, 'K', 9)) +
+      [10, 22, 32, 42, 54].map((x, i) => `<circle cx="${x}" cy="${i === 2 ? 12 : i % 4 ? 16 : 22}" r="${i === 2 ? 4.5 : 3.5}" ${ACC}/>`).join(''),
+  ),
+  vanunu: svg(
+    [10, 20, 30, 40, 50].map((x, i) => card(x + 2, 28, 13, 19, 0, i < 3 ? text(x + 2, 32, ['A', '2', 'K'][i], 8) : '', i < 3 ? ME : INK)).join('') +
+      `<path ${ACC} d="M14 50l6-8 6 8z"/><path fill="#7cc4ff" d="M38 42l6 8 6-8z"/>` +
+      text(32, 60, 'HI · LO', 9, ACC, 'Barlow Condensed, sans-serif'),
+  ),
+  pokerdice: svg(
+    [[18, 26, -10, 'A'], [44, 24, 8, 'K'], [30, 46, 4, 'A']]
+      .map(
+        ([x, y, r, f]) =>
+          `<g transform="rotate(${r} ${x} ${y})"><rect x="${+x - 12}" y="${+y - 12}" width="24" height="24" rx="5" ${ME} stroke="var(--ink, #10141c)" stroke-width="1.4"/>` +
+          (f === 'A' ? suit('s', +x, +y, 12) : text(+x, +y + 5, String(f), 13, 'fill="#c8142c"')) +
+          `</g>`,
+      )
+      .join(''),
+  ),
+  craps: svg(
+    `<g transform="rotate(-14 22 36)"><rect x="9" y="23" width="26" height="26" rx="5" fill="#c8142c" stroke="var(--ink, #10141c)" stroke-width="1.4"/>` +
+      [[15, 29], [22, 36], [29, 43]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6" fill="#fff"/>`).join('') +
+      `</g><g transform="rotate(12 44 28)"><rect x="31" y="15" width="26" height="26" rx="5" fill="#c8142c" stroke="var(--ink, #10141c)" stroke-width="1.4"/>` +
+      [[37, 21], [51, 21], [37, 35], [51, 35]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6" fill="#fff"/>`).join('') +
+      `</g>` + text(32, 62, '7', 12, ACC),
+  ),
+  suitpoker: svg(
+    card(16, 36, 20, 28, -14, '') + star(16, 36, 7) +
+      card(32, 32, 20, 28, 0, suit('s', 32, 32, 13)) +
+      card(48, 36, 20, 28, 14, suit('s', 48, 36, 13)),
   ),
   roulette: svg(
     `<circle cx="32" cy="32" r="27" ${ME}/><circle cx="32" cy="32" r="22" ${INK}/>` +
