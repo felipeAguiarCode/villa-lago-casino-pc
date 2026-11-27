@@ -859,6 +859,7 @@ export class Trump21View extends TableGame {
           this.c3.clear();
           this.shown.clear();
           for (const c of all) this.cardsT.all.splice(this.cardsT.all.indexOf(c), 1);
+          this.updateBubbles();
           sfx.play('shove', { vol: 0.7 });
           await collectCards(all, table.shoeMouth(), table.shoeYaw, (c) => cards.destroy(c));
           sfx.play('shuffle', { vol: 0.6 });
