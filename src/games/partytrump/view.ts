@@ -13,7 +13,7 @@ import { TableGame } from '../tableGame';
 import type { GameCtx } from '../types';
 // Trump 21's card art and its strings (the trump names, tr.*)
 import { trumpFace } from '../trump21/view';
-import { rarityOf, type TrumpId } from '../trump21/rules';
+import { rarityOf, TRUMPS, type TrumpId } from '../trump21/rules';
 import { bindTrump, centreIn, flyBonusTrump, trumpInner, type TrumpCardInfo } from '../trump21/trumpUi';
 import { drawMindset, newMemory, remember, thinkTime, type AiMemory, type Mindset } from '../partybj/mindset';
 import { boxWidth, glowPlate, PARTY_COLORS as COLORS, partyPlate, partyPrint, seatBox, setPlateName, type Plate } from '../partybj/partyKit';
@@ -86,7 +86,37 @@ addStrings(
     'px.tr.gift.d': 'Give your last card to the dealer (the whole table feels it)',
     'px.tr.overload.d': 'The dealer takes the top two cards of the shoe now',
     'px.tr.rewind.d': 'You and the dealer each return your last card to the shoe',
-    'px.tr.barrier.d': 'Blocks the next dealer trump aimed at you this round',
+    'px.tr.barrier.d': "Blocks the next trump aimed at you this round (the dealer's or another player's)",
+    'tr.wildSwitch': 'Wild Switch',
+    'tr.wildForce': 'Wild Force',
+    'tr.wildLow': 'Wild Low Swap',
+    'tr.wildHigh': 'Wild High Swap',
+    'tr.wildHands': 'Wild Hand Swap',
+    'tr.wildRedeal': 'Wild Redeal',
+    'tr.passAround': 'Pass Around',
+    'tr.tablePick': 'Table Pick',
+    'tr.rampart': 'Rampart',
+    'tr.crown': 'Table Crown',
+    'px.tr.wildSwitch.d': 'Swap your last card for the last card of a rival drawn at random (another player or the dealer)',
+    'px.tr.wildForce.d': 'A rival drawn at random (another player or the dealer) must take the top card',
+    'px.tr.wildLow.d': 'Swap your lowest card for the lowest card of a rival drawn at random (another player or the dealer)',
+    'px.tr.wildHigh.d': 'Swap your highest card for the highest card of a rival drawn at random (another player or the dealer)',
+    'px.tr.wildHands.d': 'Swap your whole hand for the hand of a rival drawn at random (another player or the dealer)',
+    'px.tr.wildRedeal.d': 'You and a rival drawn at random return your cards to the shoe and are dealt as many again, one at a time, taking turns (you first)',
+    'px.tr.passAround.d': 'Every player with two cards or more passes their last card to the next player, and the last one to the first (the dealer stays out)',
+    'px.tr.tablePick.d': "Swap your last card for the other player's last card that brings you closest to your target",
+    'px.tr.rampart.d': "Blocks the dealer's next trump aimed at any player this round",
+    'px.tr.crown.d': 'Win with the hand closest to its target at the whole table and the win pays 1 more',
+    'px.partyOnly': 'only at this table',
+    'px.dealerName': 'the dealer',
+    'px.rivalIs': 'Rival drawn: {name}',
+    'px.rivalYou': '{name} drew you as the rival!',
+    'px.rivalTag': 'Drawn!',
+    'px.answerSeat': '{name} changed your hand: your move',
+    'px.rampartHit': 'Rampart! {name} was blocked',
+    'px.rampartTag': 'RAMPART',
+    'px.passed': 'The last cards went round the table',
+    'px.redealt': 'Hands dealt again',
     'px.tr.tiebreak.d': 'Ties with the dealer go to you this round',
     'px.tr.bullseye.d': 'Win right on your target this round and it pays 3 to 1',
     'px.bonusToast': '{name}: bonus trump! HIT again for your card',
@@ -105,14 +135,17 @@ addStrings(
       <h4>The deal</h4>
       <p>From first base (the dealer's left, on your right) each seat gets a private card, then the dealer's hole card, a second card face up to every seat and the dealer's up card. The regulars' private cards stay face down; the dealer and the regulars play as if they can't see yours.</p>
       <h4>Turns</h4>
-      <p>The seats play in order, first base to third base. On your turn play trumps at any time, <b>hit</b> as often as you like and <b>stand</b> to finish. Going over your target doesn't end your hand: a trump may still save it. Then the dealer turns its hole card over and plays. When one of the dealer's trumps hits your hand (Force Draw, Burn) you answer at once with a short turn.</p>
+      <p>The seats play in order, first base to third base. On your turn play trumps at any time, <b>hit</b> as often as you like and <b>stand</b> to finish. Going over your target doesn't end your hand: a trump may still save it. Then the dealer turns its hole card over and plays. When one of the dealer's trumps hits your hand (Force Draw, Burn) you answer at once with a short turn; when another player's card changes your hand after your turn, you answer as soon as their turn is over.</p>
       <h4>Targets and winning</h4>
       <p>The table target is <b>21</b>; only the dealer's target cards move it. A target card you play (Line 15 to 30, Reset 21, Line +2 or −2, or Wild Line, which draws a number from 16 to 28) gives <b>you</b> a target of your own for the round, and the dealer's target cards no longer move it. Every seat is compared with the dealer on its own: the hand closer to its own target without going over wins <b>1:1</b>; over the target loses to a hand that isn't; if both are over, the smaller overshoot wins. <b>Ties go to the dealer</b> (the house's edge).</p>
       <h4>The dealer</h4>
       <p>The dealer draws while it is more than 3 under the table target (under 18 at 21) and stands from there; frozen, it draws one card at most. At each decision it plays the first trump that fits: over the target, Recall or the tightest higher target card (Wild Line when it saves it at least half the time); it shatters the trumps of a seat holding three or more; with a total that fits a lower target it plays it when most of the money on table-target seats shows more; it forces a card on the seat most likely to bust from it, and burns the last card (6 or more) of the biggest stake beating it; otherwise it improves its hand with Precision or a Call. It reads each seat as its face-up cards plus 6. It is dealt <b>two trumps every round</b> (it faces five hands); its hand holds five, and a new one replaces its oldest.</p>
       <h4>Trump cards</h4>
-      <p>Each seat holds up to five trumps, kept between rounds: one every deal, and about one hit in five turns up a <b>bonus trump</b> instead of the card. The bonus joins your hand with its own sound, your turn goes on and your next hit is a sure card, so it never costs you your draw. Click a trump to play it; <b>point at it with the mouse to read what it does</b> (on a touch screen, hold it).</p>
-      <p>Your own trumps change only your hand, your target and your stake. Trumps against the dealer (Burn, Switch, Force Draw, Freeze, Shatter, Pickpocket, Blindfold, Heist, Gift, Rewind) change the dealer's hand or trumps for <b>the whole table</b>, so the regulars can help or hurt everyone's chances. Overload (two cards for the dealer) is a single-table card: it isn't dealt here. At this table Precision and Feather choose from the next three cards, Glimpse is a private peek, and Freeze lets the dealer draw only one card. Stakes Up doubles your bet; Guard gives half back on a loss, Fortress all of it; Bounty pays a win 2 to 1, Bullseye 3 to 1 right on your target; Tiebreaker gives you the ties; a Barrier blocks the next dealer trump aimed at you.</p>
+      <p>Each seat holds up to five trumps, kept between rounds: one every deal, and about three hits in ten turn up a <b>bonus trump</b> instead of the card. The bonus joins your hand with its own sound, your turn goes on and your next hit is a sure card, so it never costs you your draw. Click a trump to play it; <b>point at it with the mouse to read what it does</b> (on a touch screen, hold it).</p>
+      <p>Your own trumps change only your hand, your target and your stake. Trumps against the dealer (Burn, Switch, Force Draw, Freeze, Shatter, Pickpocket, Blindfold, Heist, Gift, Rewind) change the dealer's hand or trumps for <b>the whole table</b>, so the regulars can help or hurt everyone's chances. Overload (two cards for the dealer) is a single-table card: it isn't dealt here. At this table Precision and Feather choose from the next three cards, Glimpse is a private peek, and Freeze lets the dealer draw only one card. Stakes Up doubles your bet; Guard gives half back on a loss, Fortress all of it; Bounty pays a win 2 to 1, Bullseye 3 to 1 right on your target; Tiebreaker gives you the ties; a Barrier blocks the next trump aimed at you, the dealer's or another player's.</p>
+      <h4>This table's own cards</h4>
+      <p><b>Wild cards</b> (a die in the corner) draw a rival at random, another player or the dealer, with a quick roulette over the table: Wild Switch (last card for last card), Wild Force (the rival takes the top card), Wild Low Swap and Wild High Swap (your lowest or highest card for theirs), Wild Hand Swap (the whole hands) and Wild Redeal (both hands back into the shoe and dealt again, one card each in turn, you first). The regulars play them too, so your hand may be the one drawn.</p>
+      <p><b>Table cards:</b> Pass Around (every player with two cards or more passes the last card to the next player, the last one to the first), Table Pick (your last card for the other player's last card that brings you closest to your target), Rampart (the dealer's next trump aimed at anyone at the table is blocked) and Table Crown (a win with the hand closest to its target at the whole table pays 1 more). These cards are dealt about half as often as the others.</p>
       <h4>The regulars</h4>
       <p>Regulars from the Villa Lago circuit sit in with you, a different crowd at every visit. Each has a temperament of their own, but nobody plays every hand the same way: one hand they read every card left in the shoe, the next they press, play it safe or follow a hunch. Watch their bets, their trumps and their moves; what they are thinking, they keep to themselves. When one goes broke they leave, and someone new pulls up a chair. They bet 10–200 of their own chips; only your bets touch your bankroll.</p>
       <h4>Hint</h4>
@@ -178,7 +211,37 @@ addStrings(
     'px.tr.gift.d': 'Dá a sua última carta ao dealer (a mesa inteira sente)',
     'px.tr.overload.d': 'O dealer pega agora as duas cartas do topo do sapato',
     'px.tr.rewind.d': 'Você e o dealer devolvem a última carta ao sapato',
-    'px.tr.barrier.d': 'Bloqueia o próximo trunfo do dealer contra você nesta rodada',
+    'px.tr.barrier.d': 'Bloqueia o próximo trunfo contra você nesta rodada (do dealer ou de outro jogador)',
+    'tr.wildSwitch': 'Troca Sorteada',
+    'tr.wildForce': 'Compra Sorteada',
+    'tr.wildLow': 'Troca Baixa Sorteada',
+    'tr.wildHigh': 'Troca Alta Sorteada',
+    'tr.wildHands': 'Troca de Mãos Sorteada',
+    'tr.wildRedeal': 'Redistribuir Sorteado',
+    'tr.passAround': 'Rodízio',
+    'tr.tablePick': 'Garimpo',
+    'tr.rampart': 'Muralha',
+    'tr.crown': 'Coroa da Mesa',
+    'px.tr.wildSwitch.d': 'Troca a sua última carta pela última de um rival sorteado (outro jogador ou o dealer)',
+    'px.tr.wildForce.d': 'Um rival sorteado (outro jogador ou o dealer) é obrigado a pegar a carta do topo',
+    'px.tr.wildLow.d': 'Troca a sua carta mais baixa pela mais baixa de um rival sorteado (outro jogador ou o dealer)',
+    'px.tr.wildHigh.d': 'Troca a sua carta mais alta pela mais alta de um rival sorteado (outro jogador ou o dealer)',
+    'px.tr.wildHands.d': 'Troca a sua mão inteira pela de um rival sorteado (outro jogador ou o dealer)',
+    'px.tr.wildRedeal.d': 'Você e um rival sorteado devolvem as cartas ao sapato e recebem a mesma quantidade de novo, uma de cada vez, alternando (você primeiro)',
+    'px.tr.passAround.d': 'Cada jogador com duas cartas ou mais passa a última carta para o jogador seguinte, e o último para o primeiro (o dealer fica de fora)',
+    'px.tr.tablePick.d': 'Troca a sua última carta pela última carta de outro jogador que mais te aproxima do seu alvo',
+    'px.tr.rampart.d': 'Bloqueia o próximo trunfo do dealer contra qualquer jogador da mesa nesta rodada',
+    'px.tr.crown.d': 'Se você vencer com a mão mais perto do alvo de toda a mesa, a vitória paga 1 a mais',
+    'px.partyOnly': 'só nesta mesa',
+    'px.dealerName': 'o dealer',
+    'px.rivalIs': 'Rival sorteado: {name}',
+    'px.rivalYou': '{name} sorteou você como rival!',
+    'px.rivalTag': 'Sorteado!',
+    'px.answerSeat': '{name} mexeu na sua mão: sua vez',
+    'px.rampartHit': 'Muralha! {name} foi bloqueado',
+    'px.rampartTag': 'MURALHA',
+    'px.passed': 'As últimas cartas giraram pela mesa',
+    'px.redealt': 'Mãos distribuídas de novo',
     'px.tr.tiebreak.d': 'Empates com o dealer são seus nesta rodada',
     'px.tr.bullseye.d': 'Vencer cravando o seu alvo nesta rodada paga 3 para 1',
     'px.bonusToast': '{name}: trunfo bônus! PEÇA de novo para receber sua carta',
@@ -197,14 +260,17 @@ addStrings(
       <h4>A distribuição</h4>
       <p>A partir da primeira base (à esquerda do dealer, à sua direita) cada lugar recebe uma carta privada, depois vem a carta fechada do dealer, uma segunda carta aberta para cada lugar e a carta aberta do dealer. As cartas privadas dos frequentadores ficam viradas; o dealer e os frequentadores jogam como se não vissem a sua.</p>
       <h4>Turnos</h4>
-      <p>Os lugares jogam em ordem, da primeira à terceira base. No seu turno use trunfos quando quiser, <b>peça</b> quantas cartas quiser e <b>pare</b> para terminar. Passar do seu alvo não encerra a mão: um trunfo ainda pode salvá-la. Depois o dealer vira a carta fechada e joga. Quando um trunfo do dealer atinge a sua mão (Compra Forçada, Queimar), você responde na hora com um turno curto.</p>
+      <p>Os lugares jogam em ordem, da primeira à terceira base. No seu turno use trunfos quando quiser, <b>peça</b> quantas cartas quiser e <b>pare</b> para terminar. Passar do seu alvo não encerra a mão: um trunfo ainda pode salvá-la. Depois o dealer vira a carta fechada e joga. Quando um trunfo do dealer atinge a sua mão (Compra Forçada, Queimar), você responde na hora com um turno curto; quando a carta de outro jogador mexe na sua mão depois do seu turno, você responde assim que o turno dele termina.</p>
       <h4>Alvos e vitória</h4>
       <p>O alvo da mesa é <b>21</b>; só as cartas de alvo do dealer o mudam. Uma carta de alvo que você usa (Linha 15 a 30, Volta 21, Linha +2 ou −2, ou a Linha Louca, que sorteia um número de 16 a 28) dá a <b>você</b> um alvo próprio nesta rodada, e as cartas de alvo do dealer não o mudam mais. Cada lugar é comparado com o dealer separadamente: a mão mais perto do próprio alvo sem passar ganha <b>1:1</b>; quem passou do alvo perde para quem não passou; se os dois passaram, vence quem passou menos. <b>Empate é do dealer</b> (a vantagem da casa).</p>
       <h4>O dealer</h4>
       <p>O dealer compra enquanto estiver a mais de 3 do alvo da mesa (abaixo de 18 com alvo 21) e para daí em diante; congelado, compra no máximo uma carta. Em cada decisão usa o primeiro trunfo que servir: acima do alvo, Recolher ou a carta de alvo maior mais justa (a Linha Louca quando ela o salva pelo menos metade das vezes); estilhaça os trunfos de quem tem três ou mais; com um total que cabe num alvo menor, usa essa carta quando a maior parte do dinheiro nos lugares do alvo da mesa mostra mais; força uma carta no lugar com mais chance de estourar e queima a última carta (6 ou mais) da maior aposta que o está vencendo; senão melhora a mão com Precisão ou Chamar. Ele lê cada lugar como as cartas abertas mais 6. Recebe <b>dois trunfos a cada rodada</b> (enfrenta cinco mãos); a mão dele guarda cinco, e um novo substitui o mais antigo.</p>
       <h4>Cartas trunfo</h4>
-      <p>Cada lugar guarda até cinco trunfos entre as rodadas: um a cada distribuição, e mais ou menos um pedido em cada cinco tira um <b>trunfo bônus</b> no lugar da carta. O bônus entra na sua mão com um som próprio, o seu turno continua e o próximo pedido é carta garantida, então ele nunca custa o seu saque. Clique num trunfo para usá-lo; <b>passe o mouse sobre ele para ler o que ele faz</b> (numa tela de toque, segure-o).</p>
-      <p>Os seus trunfos mudam só a sua mão, o seu alvo e a sua aposta. Trunfos contra o dealer (Queimar, Trocar, Compra Forçada, Congelar, Estilhaçar, Batedor, Venda, Furto, Presente, Rebobinar) mudam a mão ou os trunfos do dealer para <b>a mesa inteira</b>, então os frequentadores podem ajudar ou atrapalhar as chances de todos. A Sobrecarga (duas cartas para o dealer) é só da mesa individual: não sai aqui. Nesta mesa Precisão e Pluma escolhem entre as próximas três cartas, Espiar é uma espiada só sua e Congelar deixa o dealer comprar só uma carta. Dobro dobra a sua aposta; Escudo devolve metade numa derrota, Fortaleza tudo; Recompensa paga a vitória 2 para 1, Na Mosca 3 para 1 cravando o seu alvo; Desempate te dá os empates; a Barreira bloqueia o próximo trunfo do dealer contra você.</p>
+      <p>Cada lugar guarda até cinco trunfos entre as rodadas: um a cada distribuição, e mais ou menos três pedidos em cada dez tiram um <b>trunfo bônus</b> no lugar da carta. O bônus entra na sua mão com um som próprio, o seu turno continua e o próximo pedido é carta garantida, então ele nunca custa o seu saque. Clique num trunfo para usá-lo; <b>passe o mouse sobre ele para ler o que ele faz</b> (numa tela de toque, segure-o).</p>
+      <p>Os seus trunfos mudam só a sua mão, o seu alvo e a sua aposta. Trunfos contra o dealer (Queimar, Trocar, Compra Forçada, Congelar, Estilhaçar, Batedor, Venda, Furto, Presente, Rebobinar) mudam a mão ou os trunfos do dealer para <b>a mesa inteira</b>, então os frequentadores podem ajudar ou atrapalhar as chances de todos. A Sobrecarga (duas cartas para o dealer) é só da mesa individual: não sai aqui. Nesta mesa Precisão e Pluma escolhem entre as próximas três cartas, Espiar é uma espiada só sua e Congelar deixa o dealer comprar só uma carta. Dobro dobra a sua aposta; Escudo devolve metade numa derrota, Fortaleza tudo; Recompensa paga a vitória 2 para 1, Na Mosca 3 para 1 cravando o seu alvo; Desempate te dá os empates; a Barreira bloqueia o próximo trunfo contra você, do dealer ou de outro jogador.</p>
+      <h4>As cartas próprias desta mesa</h4>
+      <p><b>Cartas sorteadas</b> (um dado no canto) sorteiam um rival, outro jogador ou o dealer, com uma roleta rápida pela mesa: Troca Sorteada (última carta pela última), Compra Sorteada (o rival pega a carta do topo), Troca Baixa e Troca Alta Sorteadas (a sua carta mais baixa ou mais alta pela dele), Troca de Mãos Sorteada (as mãos inteiras) e Redistribuir Sorteado (as duas mãos voltam ao sapato e são distribuídas de novo, uma carta de cada vez, você primeiro). Os frequentadores também as usam, então a sua mão pode ser a sorteada.</p>
+      <p><b>Cartas da mesa:</b> Rodízio (cada jogador com duas cartas ou mais passa a última para o jogador seguinte, e o último para o primeiro), Garimpo (a sua última carta pela última carta de outro jogador que mais te aproxima do seu alvo), Muralha (o próximo trunfo do dealer contra qualquer jogador da mesa é bloqueado) e Coroa da Mesa (vencer com a mão mais perto do alvo de toda a mesa paga 1 a mais). Essas cartas saem mais ou menos com a metade da frequência das outras.</p>
       <h4>Os frequentadores</h4>
       <p>Frequentadores do circuito Villa Lago sentam com você, uma turma diferente a cada visita. Cada um tem o seu temperamento, mas ninguém joga todas as mãos do mesmo jeito: numa mão leem cada carta que resta no sapato, na outra partem para cima, jogam com cautela ou seguem um palpite. Repare nas apostas, nos trunfos e nas jogadas; o que estão pensando, eles guardam para si. Quem quebra se levanta, e logo outra pessoa puxa a cadeira. Eles apostam de 10 a 200 com as próprias fichas; só as suas apostas mexem no seu saldo.</p>
       <h4>Dica</h4>
@@ -245,6 +311,8 @@ function trumpDesc(id: TrumpId): string {
 }
 
 const css = (el: HTMLElement, s: Partial<CSSStyleDeclaration>) => Object.assign(el.style, s);
+/** A card only this table deals (the wild cards, the table cards). */
+const partyOnly = (id: TrumpId) => !!TRUMPS.find((x) => x.id === id)?.party;
 
 interface AiState {
   profile: AiProfile;
@@ -334,7 +402,7 @@ export class PartyTrumpView extends TableGame {
   rules() {
     const rows = SEAT_POOL.map((id) => {
       const r = rarityOf(id);
-      const dealer = DEALER_POOL.includes(id) ? ` · ${t('px.dealerOnly')}` : '';
+      const dealer = DEALER_POOL.includes(id) ? ` · ${t('px.dealerOnly')}` : partyOnly(id) ? ` · ${t('px.partyOnly')}` : '';
       return (
         `<div class="codex-row" data-rarity="${r}"><span class="trump mini" data-rarity="${r}"><span class="tr-ic">${trumpFace(id)}</span></span>` +
         `<span><b>${trumpName(id)}</b> <i>${t(`rar.${r}`)}${dealer}</i><br>${trumpDesc(id)}</span></div>`
@@ -517,7 +585,7 @@ export class PartyTrumpView extends TableGame {
     this.dTrumpPin?.place(dp.x, dp.y);
     const sp = this.screen(side + 0.15, this.dealerZ + 0.5);
     this.statusPin?.place(sp.x, sp.y);
-    this.statusPin?.show(this.phase === 'playing' && !!r && (r.dealer.frozen || r.dealer.blinded));
+    this.statusPin?.show(this.phase === 'playing' && !!r && (r.dealer.frozen || r.dealer.blinded || r.rampart));
     // the private views sit further out, within the band on narrower screens
     const far = Math.min(side + 1.2, 2.6 * this.g.stage.stretch);
     const hp = this.screen(-far, this.dealerZ + 0.05);
@@ -544,7 +612,8 @@ export class PartyTrumpView extends TableGame {
     return this.seats[posOf(seat)];
   }
 
-  private nameOf(seat: number) {
+  private nameOf(seat: Who) {
+    if (seat === DEALER) return t('px.dealerName');
     const ai = this.seatV(seat).ai;
     return ai ? ai.profile.name : t('pb.you');
   }
@@ -558,14 +627,16 @@ export class PartyTrumpView extends TableGame {
     const T = r.targetOf(seat);
     const own = s.own !== null;
     const open = !sv.ai || !!sv.cards[0]?.faceUp;
+    // the cards already on the table (a hand being dealt again shows only what has landed)
+    const down = s.cards.filter((_, i) => sv.cards[i]);
     let text: string;
     let cls = 'bubble up';
     if (open) {
-      const p = r.total(seat);
+      const p = down.reduce((a, v) => a + v, 0);
       text = `${p} / ${T}`;
       if (p > T) cls += ' bust';
       else if (p === T) cls += ' bj';
-    } else text = `? + ${r.visibleTotal(seat)}${own ? ` / ${T}` : ''}`;
+    } else text = `? + ${down.slice(1).reduce((a, v) => a + v, 0)}${own ? ` / ${T}` : ''}`;
     if (sv.active) cls += ' active';
     sv.bubble.set(text, cls);
     if (pop) sv.bubble.pop();
@@ -575,10 +646,11 @@ export class PartyTrumpView extends TableGame {
     const r = this.round;
     const b = this.dealerBubble;
     if (!r || !b || !r.dealer.cards.length) return;
-    const hidden = !r.holeUp;
+    const hidden = !r.holeUp && !this.dealer[0]?.faceUp;
     const T = r.tableTarget;
-    const vis = r.dealer.cards.slice(hidden ? 1 : 0).reduce((a, v) => a + v, 0);
-    const tot = r.total(DEALER);
+    const down = r.dealer.cards.filter((_, i) => this.dealer[i]);
+    const vis = down.slice(hidden ? 1 : 0).reduce((a, v) => a + v, 0);
+    const tot = down.reduce((a, v) => a + v, 0);
     b.set(hidden ? `? + ${vis}` : `${tot} / ${T}`, `bubble down${!hidden && tot > T ? ' bust' : ''}`);
     if (pop) b.pop();
   }
@@ -594,7 +666,7 @@ export class PartyTrumpView extends TableGame {
   private updateStatus() {
     const r = this.round;
     if (!r || !this.statusPin) return;
-    const parts = [r.dealer.frozen ? t('px.frozen') : '', r.dealer.blinded ? t('px.blind') : ''].filter(Boolean);
+    const parts = [r.dealer.frozen ? t('px.frozen') : '', r.dealer.blinded ? t('px.blind') : '', r.rampart ? t('px.rampartTag') : ''].filter(Boolean);
     this.statusPin.set(parts.join(' · '), 'handtag dealer');
   }
 
@@ -610,7 +682,7 @@ export class PartyTrumpView extends TableGame {
 
   /** A trump's card and what it does at this table (the held card, the bonus flight). */
   private trumpInfo(id: TrumpId): TrumpCardInfo {
-    return { face: trumpFace(id), name: trumpName(id), desc: trumpDesc(id), rarity: rarityOf(id), tag: DEALER_POOL.includes(id) ? t('px.dealerOnly') : undefined };
+    return { face: trumpFace(id), name: trumpName(id), desc: trumpDesc(id), rarity: rarityOf(id), tag: DEALER_POOL.includes(id) ? t('px.dealerOnly') : partyOnly(id) ? t('px.partyOnly') : undefined };
   }
 
   /** The player's trumps (the right zone, as at Trump 21): a tap plays one on your turn, a press held shows what it does. */
@@ -904,10 +976,76 @@ export class PartyTrumpView extends TableGame {
     return who === DEALER ? this.dealer : this.seatV(who).cards;
   }
 
-  private relayoutHand(who: Who, dur = 0.26) {
+  private relayoutHand(who: Who, dur = 0.26, lift = 0.06) {
     const hand = this.handOf(who);
     const pl = who === DEALER ? this.dealerPlaces(hand.length) : this.seatPlaces(this.seatV(who), hand.length);
-    return Promise.all(hand.map((c, i) => (c ? slideCard(c, pl[i], dur) : Promise.resolve())));
+    return Promise.all(hand.map((c, i) => (c ? slideCard(c, pl[i], dur, lift) : Promise.resolve())));
+  }
+
+  /** Cards that crossed the table land face up where they are public: any card of yours, a seat's cards after the first, the dealer's up cards. */
+  private async fixFaces(whos: Who[]) {
+    const r = this.round!;
+    const flips: Promise<void>[] = [];
+    for (const who of new Set(whos)) {
+      this.handOf(who).forEach((c, i) => {
+        if (!c || c.faceUp) return;
+        const open = who === ME || i > 0 || (who === DEALER && r.holeUp);
+        if (open) flips.push(this.cardsT.flip(c, 0.35));
+      });
+    }
+    await Promise.all(flips);
+  }
+
+  /** After cards changed hands: the bubbles, and your private view of the hole card (it may have changed). */
+  private afterMove(whos: Who[]) {
+    const r = this.round!;
+    for (const who of new Set(whos)) {
+      if (who === DEALER) this.updateDealerBubble(true);
+      else this.updateBubble(who, true);
+    }
+    if (!r.holeUp && this.holePin) {
+      if (r.seesHole(ME) && r.dealer.cards.length) {
+        const v = r.dealer.cards[0];
+        this.holePin.el.innerHTML = `<small>${t('px.hole')}</small><img alt="${v}" src="${cardDataURL(100 + v, 90)}">`;
+        this.holePin.show(true);
+      } else this.holePin.show(false);
+    }
+  }
+
+  /** Cards cross the table to their new hands. */
+  private async moveCards(whos: Who[]) {
+    this.g.sfx.play('fan', { vol: 0.7 });
+    await Promise.all([...new Set(whos)].map((w) => this.relayoutHand(w, 0.5, 0.3)));
+    await this.fixFaces(whos);
+    this.afterMove(whos);
+  }
+
+  /** A wild card draws its rival: a light runs over everyone it could draw and stops on the one drawn. */
+  private async drawRival(e: Extract<PxEvent, { t: 'rival' }>) {
+    const { sfx, fx, hud } = this.g;
+    const spot = (w: Who) => {
+      if (w === DEALER) return new THREE.Vector3(0, 0, this.dealerZ);
+      const c = onTable(this.seatV(w).geo, 0, LY.cards);
+      return new THREE.Vector3(c.x, 0, c.z);
+    };
+    const n = e.pool.length;
+    const steps = n > 1 ? 8 + n : 1;
+    const end = Math.max(0, e.pool.indexOf(e.on));
+    const start = (((end - (steps - 1)) % n) + n) % n;
+    for (let i = 0; i < steps; i++) {
+      const last = i === steps - 1;
+      const w = e.pool[(start + i) % n];
+      if (last) fx.glow(spot(w), 2.2, 1.7, 1.4, '#ffd76a');
+      else fx.glow(spot(w), 1.4, 1.2, 0.32, '#c9a6ff');
+      sfx.tick(0.14, 0.8 + (0.5 * i) / steps);
+      if (!last) await wait(0.05 + 0.16 * (i / steps) ** 2);
+    }
+    sfx.bell();
+    if (e.on === ME) hud.toast(t('px.rivalYou', { name: this.nameOf(e.who) }), 1900);
+    else hud.toast(t('px.rivalIs', { name: this.nameOf(e.on) }), 1500);
+    if (e.on === DEALER) this.sayDealer(t('px.rivalTag'), 'lose');
+    else this.say(this.seatV(e.on), t('px.rivalTag'), 'lose');
+    await wait(0.35);
   }
 
   private async dealTo(e: Extract<PxEvent, { t: 'card' }>) {
@@ -1001,7 +1139,53 @@ export class PartyTrumpView extends TableGame {
       }
       case 'trump':
         await this.showTrump(e);
+        this.updateStatus();
         break;
+      case 'rival':
+        await this.drawRival(e);
+        break;
+      case 'swapCards': {
+        const ha = this.handOf(e.a);
+        const hb = this.handOf(e.b);
+        [ha[e.ai], hb[e.bi]] = [hb[e.bi], ha[e.ai]];
+        await this.moveCards([e.a, e.b]);
+        break;
+      }
+      case 'swapHands': {
+        const ha = this.handOf(e.a);
+        const hb = this.handOf(e.b);
+        const mine = ha.slice();
+        ha.splice(0, ha.length, ...hb);
+        hb.splice(0, hb.length, ...mine);
+        await this.moveCards([e.a, e.b]);
+        break;
+      }
+      case 'rotate': {
+        // every last card to the next seat of the ring
+        const lasts = e.seats.map((s) => this.handOf(s).pop());
+        e.seats.forEach((_, k) => this.handOf(e.seats[(k + 1) % e.seats.length]).push(lasts[k]));
+        hud.toast(t('px.passed'), 1400);
+        await this.moveCards(e.seats);
+        break;
+      }
+      case 'redeal': {
+        // both hands back into the shoe; the cards that follow deal them again
+        const { table, cards } = this.g;
+        const back = [...this.handOf(e.a), ...this.handOf(e.b)].filter((c): c is Card3D => !!c);
+        this.handOf(e.a).length = 0;
+        this.handOf(e.b).length = 0;
+        for (const c of back) {
+          const k = this.cardsT.all.indexOf(c);
+          if (k >= 0) this.cardsT.all.splice(k, 1);
+        }
+        sfx.play('shove', { vol: 0.7 });
+        await collectCards(back, table.shoeMouth(), table.shoeYaw, (c) => cards.destroy(c));
+        sfx.play('shuffle', { vol: 0.6 });
+        hud.toast(t('px.redealt'), 1300);
+        this.afterMove([e.a, e.b]);
+        await wait(0.25);
+        break;
+      }
       case 'gain': {
         if (e.bonus) {
           await this.bonusFlight(e.who, e.id);
@@ -1032,14 +1216,17 @@ export class PartyTrumpView extends TableGame {
         break;
       }
       case 'blocked': {
-        // the seat's Barrier takes the dealer's trump
+        // the seat's Barrier (or the table's Rampart) takes the trump
         sfx.barrier();
         const sv = this.seatV(e.seat);
         const c = onTable(sv.geo, 0, LY.cards);
         fx.glow(new THREE.Vector3(c.x, 0, c.z), 1.8, 1.6, 1.4, '#8fd0ff');
         fx.burst(new THREE.Vector3(c.x, 0.25, c.z), 40, '#cfefff');
-        if (e.seat === ME) hud.toast(t('px.blocked', { name: trumpName(e.id) }), 1700);
-        else this.say(sv, t('px.blockedSay'), 'win');
+        if (e.rampart) {
+          hud.toast(t('px.rampartHit', { name: trumpName(e.id) }), 1700);
+          this.updateStatus();
+        } else if (e.seat === ME) hud.toast(t('px.blocked', { name: trumpName(e.id) }), 1700);
+        this.say(sv, t('px.blockedSay'), 'win');
         break;
       }
       case 'lose': {
@@ -1111,7 +1298,7 @@ export class PartyTrumpView extends TableGame {
       case 'reply': {
         const sv = this.seatV(e.seat);
         if (sv.ai) this.say(sv, t('px.answer'), 'dealer');
-        else hud.toast(t('px.answerYou'), 1600);
+        else hud.toast(e.by !== undefined ? t('px.answerSeat', { name: this.nameOf(e.by) }) : t('px.answerYou'), 1800);
         break;
       }
       default:
@@ -1160,7 +1347,7 @@ export class PartyTrumpView extends TableGame {
         const c = onTable(sv.geo, 0, 0.3);
         this.g.fx.glow(new THREE.Vector3(c.x, 0, c.z), 2.0, 1.6, 1.4, '#8fd0ff');
       }
-      if (e.id === 'tiebreak' || e.id === 'bullseye') {
+      if (e.id === 'tiebreak' || e.id === 'bullseye' || e.id === 'crown') {
         const c = onTable(sv.geo, 0, 0.3);
         this.g.fx.glow(new THREE.Vector3(c.x, 0, c.z), 2.0, 1.6, 1.4, '#ffd76a');
       }
@@ -1243,13 +1430,19 @@ export class PartyTrumpView extends TableGame {
     this.updateStatus();
     await this.play(r.deal(), run);
     for (let s = 0; s < N; s++) {
-      if (this.seatV(s).ai) await this.aiTurn(s, run);
-      else await this.playerTurn(s, run);
+      await this.seatTurn(s, run);
+      // a seat whose hand another seat's card changed after its turn answers before the next seat
+      let g = 0;
+      while (r.reply !== null && r.phase === 'seats' && g++ < 20) await this.seatTurn(r.reply, run);
     }
     await this.dealerTurn(run);
     await wait(0.3);
     await this.alive(run);
     await this.showdown(r.settle(), run);
+  }
+
+  private seatTurn(s: number, run: number) {
+    return this.seatV(s).ai ? this.aiTurn(s, run) : this.playerTurn(s, run);
   }
 
   private async aiTurn(s: number, run: number) {

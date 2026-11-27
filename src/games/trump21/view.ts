@@ -12,7 +12,7 @@ import type { GameCtx } from '../types';
 import { cryptoRng } from '../../core/rng';
 import { newMemory } from '../partybj/mindset';
 import { duelPick } from '../partytrump/ai';
-import { Duel, isTargetTrump, rarityOf, TRUMPS, WILD_MAX, WILD_MIN, type DuelEvent, type Side, type TrumpId } from './rules';
+import { Duel, isTargetTrump, rarityOf, SINGLE_TRUMPS, TRUMPS, WILD_MAX, WILD_MIN, type DuelEvent, type Side, type TrumpId } from './rules';
 import { cardDataURL } from '../../table/cardFaces';
 import { bindTrump, centreIn, flyBonusTrump, trumpInner, type TrumpCardInfo } from './trumpUi';
 
@@ -400,6 +400,39 @@ const NEW_ART = {
     '<rect x="8.5" y="6.1" width="7" height="10" rx="1.2"/><path d="M7.2 18.4H4.6v2.3L1 17.6l3.6-3.1v2.3h2.6zM16.8 18.4h2.6v2.3l3.6-3.1-3.6-3.1v2.3h-2.6z"/></svg>',
 };
 
+/** The inside of a 24×24 art (its <svg> wrapper taken off), to draw it again inside another. */
+const inner = (svg: string) => svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
+const spip = (x: number, y: number) => `M${x - 0.8} ${y}a0.8 0.8 0 1 0 1.6 0a0.8 0.8 0 1 0 -1.6 0z`;
+/**
+ * Party Trump 21's wild cards: the art of the card they follow, a little smaller, with a die in the
+ * corner (the rival is drawn at random).
+ */
+const wildArt = (base: string) =>
+  '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+  `<svg x="0" y="0" width="19" height="19" viewBox="0 0 24 24">${inner(base)}</svg>` +
+  '<rect x="12.6" y="12.6" width="11" height="11" rx="2.6" fill="#1a1226"/>' +
+  `<path fill-rule="evenodd" d="M15.8 14.3h5.2a1.7 1.7 0 0 1 1.7 1.7v5.2a1.7 1.7 0 0 1-1.7 1.7h-5.2a1.7 1.7 0 0 1-1.7-1.7V16a1.7 1.7 0 0 1 1.7-1.7z${spip(16.3, 16.5)}${spip(18.4, 18.6)}${spip(20.5, 20.7)}"/></svg>`;
+/** Party Trump 21's table cards. */
+const TABLE_ART = {
+  // three cards going round the table
+  passAround:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2.6 2.2"/>' +
+    [0, 120, 240]
+      .map((a) => `<g transform="rotate(${a} 12 12)"><rect x="9.4" y="0.6" width="5.2" height="7.2" rx="1"/><path d="M19.73 9.39 19.56 6.48 17.3 7.78z"/></g>`)
+      .join('') +
+    '</svg>',
+  // the best card of the row lifted out
+  tablePick:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1.4" y="11" width="6.4" height="9" rx="1" opacity=".55"/><rect x="16.2" y="11" width="6.4" height="9" rx="1" opacity=".55"/>' +
+    '<rect x="8.8" y="7.6" width="6.4" height="9" rx="1"/><path d="M12 .8l3.4 3.8h-2.2v2h-2.4v-2H8.6z"/><path d="M2 21.2h20V23H2z" opacity=".75"/></svg>',
+  // a long wall with battlements: the whole table
+  rampart: art('M1 8.5h3V5h3.2v3.5h3.2V5h3.2v3.5h3.2V5H20v3.5h3V21H1zM2.4 12.6v1.1h19.2v-1.1zM2.4 16.8v1.1h19.2v-1.1zM7.6 8.5v4.1h1.1V8.5zM15.3 8.5v4.1h1.1V8.5zM11.4 13.7v3.1h1.1v-3.1zM5 17.9v3.1h1.1v-3.1zM17.9 17.9v3.1H19v-3.1z', true),
+  // a crown over the round table
+  crown:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 3.6 7.3 6.5l4.7-5 4.7 5 3.7-2.9-1.5 8.4H5.1z"/>' +
+    '<path d="M12 13.8c5.5 0 10 1.9 10 4.2s-4.5 4.2-10 4.2S2 20.3 2 18s4.5-4.2 10-4.2z" opacity=".7"/></svg>',
+};
+
 const TRUMP_ICON: Record<TrumpId, { icon?: IconName; text?: string; svg?: string }> = {
   glimpse: { icon: 'eye' },
   precision: { icon: 'target' },
@@ -458,6 +491,16 @@ const TRUMP_ICON: Record<TrumpId, { icon?: IconName; text?: string; svg?: string
   swapHigh: { svg: NEW_ART.swapHigh },
   swapHands: { svg: NEW_ART.swapHands },
   redeal: { svg: NEW_ART.redeal },
+  wildSwitch: { svg: wildArt(ICONS.swap) },
+  wildForce: { svg: wildArt(ICONS.bolt) },
+  wildLow: { svg: wildArt(NEW_ART.swapLow) },
+  wildHigh: { svg: wildArt(NEW_ART.swapHigh) },
+  wildHands: { svg: wildArt(NEW_ART.swapHands) },
+  wildRedeal: { svg: wildArt(NEW_ART.redeal) },
+  passAround: { svg: TABLE_ART.passAround },
+  tablePick: { svg: TABLE_ART.tablePick },
+  rampart: { svg: TABLE_ART.rampart },
+  crown: { svg: TABLE_ART.crown },
 };
 
 /** A trump card's face art (an icon, a number, or its own SVG). */
@@ -488,12 +531,12 @@ export class Trump21View extends TableGame {
   }
 
   rules() {
-    const rows = TRUMPS.map(
+    const rows = SINGLE_TRUMPS.map(
       (tr) =>
         `<div class="codex-row" data-rarity="${tr.rarity}"><span class="trump mini" data-rarity="${tr.rarity}"><span class="tr-ic">${trumpFace(tr.id)}</span></span>` +
         `<span><b>${this.trumpName(tr.id)}</b> <i>${t(`rar.${tr.rarity}`)}${tr.dealer ? ` · ${t('t21.dealerOnly')}` : ''}</i><br>${t(`tr.${tr.id}.d`)}</span></div>`,
     ).join('');
-    return `${t('t21.rules', { n: TRUMPS.length })}<h4>${t('t21.codex')}</h4><p>${t('tu.hold')}</p><div class="codex">${rows}</div>`;
+    return `${t('t21.rules', { n: SINGLE_TRUMPS.length })}<h4>${t('t21.codex')}</h4><p>${t('tu.hold')}</p><div class="codex">${rows}</div>`;
   }
 
   protected spotDefs(): SpotDef[] {

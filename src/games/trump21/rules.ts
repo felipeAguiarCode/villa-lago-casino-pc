@@ -104,7 +104,19 @@ export type TrumpId =
   | 'tiebreak'
   | 'bullseye'
   // supply
-  | 'reinforce';
+  | 'reinforce'
+  // Party Trump 21 only: a rival drawn at random (another seat or the dealer)
+  | 'wildSwitch'
+  | 'wildForce'
+  | 'wildLow'
+  | 'wildHigh'
+  | 'wildHands'
+  | 'wildRedeal'
+  // Party Trump 21 only: the full table
+  | 'passAround'
+  | 'tablePick'
+  | 'rampart'
+  | 'crown';
 
 export type Rarity = 'common' | 'uncommon' | 'rare';
 
@@ -113,6 +125,8 @@ export interface TrumpInfo {
   rarity: Rarity;
   /** Can the dealer receive it? */
   dealer?: boolean;
+  /** A Party Trump 21 card (rivals drawn at random, the full table): this table never deals it. */
+  party?: boolean;
 }
 
 /** Every trump, in codex order. Rarity sets how often it is dealt. */
@@ -175,12 +189,25 @@ export const TRUMPS: TrumpInfo[] = [
   { id: 'tiebreak', rarity: 'rare' },
   { id: 'bullseye', rarity: 'rare' },
   { id: 'reinforce', rarity: 'uncommon' },
+  // Party Trump 21 only (see partytrump/rules.ts)
+  { id: 'wildSwitch', rarity: 'uncommon', party: true },
+  { id: 'wildForce', rarity: 'uncommon', party: true },
+  { id: 'wildLow', rarity: 'uncommon', party: true },
+  { id: 'wildHigh', rarity: 'uncommon', party: true },
+  { id: 'wildHands', rarity: 'rare', party: true },
+  { id: 'wildRedeal', rarity: 'uncommon', party: true },
+  { id: 'passAround', rarity: 'uncommon', party: true },
+  { id: 'tablePick', rarity: 'rare', party: true },
+  { id: 'rampart', rarity: 'uncommon', party: true },
+  { id: 'crown', rarity: 'rare', party: true },
 ];
+/** The trumps of the single Trump 21 table (every one but the Party Trump 21 cards). */
+export const SINGLE_TRUMPS: TrumpInfo[] = TRUMPS.filter((t) => !t.party);
 
 export const RARITY_WEIGHT: Record<Rarity, number> = { common: 10, uncommon: 5, rare: 2 };
 export const rarityOf = (id: TrumpId) => TRUMPS.find((t) => t.id === id)!.rarity;
-export const PLAYER_TRUMPS: TrumpId[] = TRUMPS.map((t) => t.id);
-export const DEALER_TRUMPS: TrumpId[] = TRUMPS.filter((t) => t.dealer).map((t) => t.id);
+export const PLAYER_TRUMPS: TrumpId[] = SINGLE_TRUMPS.map((t) => t.id);
+export const DEALER_TRUMPS: TrumpId[] = SINGLE_TRUMPS.filter((t) => t.dealer).map((t) => t.id);
 /** A trump hand holds seven at most (the player's: a new one that comes with the hand full is discarded at once). */
 export const MAX_TRUMPS = 7;
 /** Chance that a card the dealer hits brings a trump along with it. */
@@ -445,7 +472,7 @@ export class Duel {
   }
 
   private pickTrump(side: Side): TrumpId {
-    const pool = TRUMPS.filter((t) => side === 'player' || t.dealer);
+    const pool = SINGLE_TRUMPS.filter((t) => side === 'player' || t.dealer);
     const total = pool.reduce((a, t) => a + dealWeight(t.id), 0);
     let r = this.rng(total);
     for (const t of pool) {

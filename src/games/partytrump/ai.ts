@@ -35,7 +35,7 @@
 import type { Rng } from '../../core/rng';
 import { BULLSEYE_EXTRA, isAttackTrump, MAX_TRUMPS, T21, type Duel, type TrumpId } from '../trump21/rules';
 import { mindsetSideBet, mindsetStake, type AiMemory, type Mindset } from '../partybj/mindset';
-import { callValue, isAttack, isTargetTrump, movedTarget, PX, targetMove, wildTargets, type PartyDuel, type SeatResult } from './rules';
+import { callValue, CROWN_EXTRA, isAttack, isTargetTrump, movedTarget, PX, targetMove, wildTargets, type PartyDuel, type SeatResult } from './rules';
 
 /** Highest total tracked (target 27 + two 11s and some). */
 const MAXT = 64;
@@ -83,6 +83,23 @@ export interface TableInfo {
   tiesWin?: boolean;
   /** Trumps a hand holds at most (default: the party table's). */
   maxTrumps?: number;
+  /** This seat's index, and the other seats as it sees them (the party table: wild trumps and the table cards). */
+  seat?: number;
+  others?: SeatSight[];
+}
+
+/** Another seat as a seat sees it. */
+export interface SeatSight {
+  seat: number;
+  /** Its cards but the private first one. */
+  visible: number[];
+  /** 1 while it holds its private card. */
+  hidden: number;
+  target: number;
+  /** It finished its turn. */
+  done: boolean;
+  /** Its Barrier is up (a trump aimed at it is wasted). */
+  barrier: boolean;
 }
 
 export type AiPick = 'hit' | 'stand' | { trump: TrumpId; on: 'self' | 'dealer' };
@@ -146,6 +163,16 @@ const KEEP: Partial<Record<TrumpId, number>> = {
   tiebreak: 0.12,
   bullseye: 0.1,
   reinforce: 0.03,
+  wildSwitch: 0.08,
+  wildForce: 0.06,
+  wildLow: 0.08,
+  wildHigh: 0.1,
+  wildHands: 0.12,
+  wildRedeal: 0.1,
+  passAround: 0.06,
+  tablePick: 0.14,
+  rampart: 0.05,
+  crown: 0.12,
 };
 /** What one new trump in hand is worth, in stakes (Reinforce). */
 const NEW_TRUMP = 0.08;
@@ -367,6 +394,18 @@ function deckSums(k: number): Float64Array {
   sums.set(k, out);
   return out;
 }
+/** Chance of each total for `n` cards drawn with the frequencies `f` (a hand dealt again from a big shoe). */
+function drawSums(f: Float64Array, n: number): Float64Array {
+  let d = new Float64Array(MAXT);
+  d[0] = 1;
+  for (let k = 0; k < n; k++) {
+    const nx = new Float64Array(MAXT);
+    for (let t = 0; t < MAXT; t++) if (d[t]) for (let c = 1; c <= 11; c++) nx[Math.min(MAXT - 1, t + c)] += d[t] * f[c];
+    d = nx;
+  }
+  return d;
+}
+
 /** The whole 1–11 deck unseen (after a Redeal), with the same dealer reading as `m`. */
 function freshModel(m: Model): Model {
   const fresh = new Model(Array.from({ length: 11 }, (_, i) => i + 1));
@@ -437,6 +476,36 @@ function afterTrump(c: Ctx, id: TrumpId): number | null {
   const dealerCards = dealer.visible.length + dealer.hidden;
   // the dealer's Barrier would stop it: wasted
   if (dealer.barrier && isAttackTrump(id)) return null;
+  /** A wild trump's value when it draws the dealer. */
+  const wildOnDealer = (id: TrumpId): number | null => {
+    if (!dealerCards) return id === 'wildForce' ? against(p, vis, 1) : null;
+    switch (id) {
+      case 'wildSwitch':
+        if (c.hand.length < 2 || dealerCards < 2 || !dealer.visible.length) return null;
+        return against(p - c.last + dealerLast, vis - dealerLast + c.last);
+      case 'wildForce':
+        return against(p, vis, 1);
+      case 'wildLow':
+      case 'wildHigh':
+        return swapOne(id === 'wildHigh');
+      case 'wildHands': {
+        if (!c.hand.length) return null;
+        if (!dealer.hidden) return against(vis, p, 0, 0);
+        let ev = 0;
+        for (let h = 1; h <= 11; h++) if (f[h]) ev += f[h] * against(vis + h, p, 0, 0);
+        return ev;
+      }
+      case 'wildRedeal': {
+        // both hands dealt again: its own from the shoe, the dealer's unknown
+        const v = m.values(Ts, m.dstate(0, dealerCards, dealer.target, dealer.standAt, dealer.draws));
+        const dist = drawSums(f, c.hand.length);
+        let ev = 0;
+        for (let t = 0; t < MAXT; t++) if (dist[t]) ev += dist[t] * Math.max(v.S[t], t < Ts ? v.H[t] : 0);
+        return ev;
+      }
+    }
+    return null;
+  };
   /** Value of the seat at total `np` against the dealer's visible sum `dv` (and `extra` forced cards). */
   const against = (np: number, dv: number, extra = 0, hidden = dealer.hidden) => {
     const v = m.values(Ts, m.dstate(dv, hidden, dealer.target, dealer.standAt, dealer.draws, extra));
@@ -498,6 +567,51 @@ function afterTrump(c: Ctx, id: TrumpId): number | null {
       for (let t = 0; t < MAXT; t++) if (dist[t]) ev += dist[t] * Math.max(v.S[t], t < Ts ? v.H[t] : 0);
       return ev;
     }
+    case 'wildSwitch':
+    case 'wildForce':
+    case 'wildLow':
+    case 'wildHigh':
+    case 'wildHands':
+    case 'wildRedeal': {
+      // the mean over every rival it may draw (the other seats and the dealer)
+      const vals: number[] = [];
+      for (const o of table.others ?? []) {
+        const v = wildOnSeat(c, id, o);
+        if (v !== null) vals.push(v);
+      }
+      const dv = wildOnDealer(id);
+      if (dv !== null) vals.push(dv);
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    }
+    case 'passAround': {
+      // the last card of the seat before it (in play order, among those with two cards) comes over
+      if (table.seat === undefined || c.hand.length < 2) return null;
+      const ring = (table.others ?? []).filter((o) => o.visible.length + o.hidden >= 2);
+      if (!ring.length) return null;
+      const before = ring.filter((o) => o.seat < table.seat!);
+      const prev = before.length ? before[before.length - 1] : ring[ring.length - 1];
+      return at(V, p - c.last + prev.visible[prev.visible.length - 1]);
+    }
+    case 'tablePick': {
+      // the rule's pick: the last card that brings the hand closest to its target
+      if (c.hand.length < 2) return null;
+      let best: SeatSight | null = null;
+      let score = Infinity;
+      for (const o of table.others ?? []) {
+        if (o.visible.length + o.hidden < 2) continue;
+        const np = p - c.last + o.visible[o.visible.length - 1];
+        const sc = np <= Ts ? Ts - np : 100 + np - Ts;
+        if (sc < score) {
+          best = o;
+          score = sc;
+        }
+      }
+      if (!best) return null;
+      return best.barrier ? c.base : at(V, p - c.last + best.visible[best.visible.length - 1]);
+    }
+    case 'rampart':
+      // a Barrier for the whole table: the dealer's first aimed trump may hit another seat instead
+      return dealer.blinded ? c.base : c.base + (0.004 * Math.min(5, dealer.trumps)) / Math.max(0.5, c.k);
     case 'barrier':
       // keeps the dealer's attacks off the hand (it sees how many trumps the dealer holds)
       return dealer.blinded ? c.base : c.base + (0.006 * Math.min(5, dealer.trumps)) / Math.max(0.5, c.k);
@@ -581,6 +695,73 @@ function afterTrump(c: Ctx, id: TrumpId): number | null {
     default:
       return null; // stake trumps: weighed at the stand
   }
+}
+
+/** A wild trump's value when it draws another seat (the dealer's hand stays as it is). */
+function wildOnSeat(c: Ctx, id: TrumpId, o: SeatSight): number | null {
+  const V = c.vals.V;
+  const f = c.m.f;
+  const p = c.p;
+  const n = o.visible.length + o.hidden;
+  const mine = c.hand.length;
+  const ok = id === 'wildSwitch' ? mine >= 2 && n >= 2 : id === 'wildForce' ? true : id === 'wildRedeal' ? n > 0 : mine > 0 && n > 0;
+  if (!ok) return null;
+  if (o.barrier) return c.base;
+  const sumV = o.visible.reduce((a, b) => a + b, 0);
+  /** The mean over its private card (or the known hand). */
+  const over = (val: (h: number | null) => number) => {
+    if (!o.hidden) return val(null);
+    let ev = 0;
+    for (let h = 1; h <= 11; h++) if (f[h]) ev += f[h] * val(h);
+    return ev;
+  };
+  switch (id) {
+    case 'wildSwitch':
+      return at(V, p - c.last + o.visible[o.visible.length - 1]);
+    case 'wildForce':
+      return c.base;
+    case 'wildLow':
+    case 'wildHigh': {
+      const hi = id === 'wildHigh';
+      const pick = (h: number[]) => (hi ? Math.max(...h) : Math.min(...h));
+      const give = pick(c.hand);
+      return over((h) => at(V, p - give + pick(h === null ? o.visible : [h, ...o.visible])));
+    }
+    case 'wildHands':
+      return over((h) => at(V, sumV + (h ?? 0)));
+    case 'wildRedeal': {
+      const dist = drawSums(f, mine);
+      let ev = 0;
+      for (let t = 0; t < MAXT; t++) if (dist[t]) ev += dist[t] * at(V, t);
+      return ev;
+    }
+  }
+  return null;
+}
+
+/** Chance that no other seat ends closer to its own target than this one (Table Crown), roughly. */
+function closestOdds(c: Ctx): number {
+  const g = c.Ts - c.p;
+  if (g < 0) return 0;
+  let odds = 1;
+  for (const o of c.table.others ?? []) {
+    let closer: number;
+    if (o.done) {
+      // finished: only its private card is unknown
+      const sumV = o.visible.reduce((a, b) => a + b, 0);
+      const hit = (h: number) => {
+        const og = o.target - (sumV + h);
+        return og >= 0 && og < g ? 1 : 0;
+      };
+      if (!o.hidden) closer = hit(0);
+      else {
+        closer = 0;
+        for (let h = 1; h <= 11; h++) closer += c.m.f[h] * hit(h);
+      }
+    } else closer = Math.min(0.85, 0.11 * g); // still to play
+    odds *= 1 - closer;
+  }
+  return odds;
 }
 
 interface Bend {
@@ -693,6 +874,8 @@ function decide(c: Ctx, trumps: TrumpId[], bend: Bend, mind: Mindset, mem: AiMem
   // Tiebreaker: the ties the dealer would take; Bullseye: standing right on the target
   if (!table.tiesWin) consider('tiebreak', c.k * at(c.m.final(c.ds), c.ds.T - c.Ts + c.p));
   if (c.p === c.Ts) consider('bullseye', k * BULLSEYE_EXTRA * pw);
+  // Table Crown: a win with the closest hand of the table pays one more
+  if (table.others && c.p <= c.Ts) consider('crown', k * CROWN_EXTRA * pw * closestOdds(c));
   if (bend.raise !== 'never') {
     const gain = evStake;
     if (gain > 0 || (bend.raise === 'borderline' && gain > -0.05)) consider('stakes', bend.raise === 'borderline' ? Math.max(gain, 0) + bend.keep('stakes', c) + 0.005 : gain);
@@ -776,6 +959,11 @@ export function seatView(r: PartyDuel, seat: number, canRaise: boolean): SeatVie
       own: s.own,
       freezeDraws: 1,
       tiesWin: PX.tiesToSeat || s.tieWin,
+      seat,
+      others: r.seats
+        .map((o, i) => ({ o, i }))
+        .filter(({ i }) => i !== seat)
+        .map(({ o, i }) => ({ seat: i, visible: o.cards.slice(1), hidden: o.cards.length ? 1 : 0, target: r.targetOf(i), done: o.stood, barrier: o.barrier })),
     },
   };
 }
@@ -803,7 +991,12 @@ export function playSeat(r: PartyDuel, seat: number, pick: (seat: number) => AiP
 /** Plays a whole round without a view (tests and simulations). */
 export function autoPlay(r: PartyDuel, pick: (seat: number) => AiPick): SeatResult[] {
   r.deal();
-  for (let s = 0; s < r.seats.length; s++) playSeat(r, s, pick);
+  for (let s = 0; s < r.seats.length; s++) {
+    playSeat(r, s, pick);
+    // seats whose hand another seat's trump changed after their turn answer before the next seat
+    let g = 0;
+    while (r.reply !== null && r.phase === 'seats' && g++ < 20) playSeat(r, r.reply, pick);
+  }
   let guard = 0;
   while (!r.done && guard++ < 60) {
     r.dealerStep();

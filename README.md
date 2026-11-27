@@ -24,7 +24,7 @@ The game is set at the Villa Lago casino, whose symbol is **VL on a golden chip*
 |---|---|
 | Blackjack | 6 decks, 3:2, split up to 4 hands, double after split, insurance / even money, basic-strategy hint |
 | Party Blackjack | The same blackjack at a full table: you and four AI regulars each play their own hands, in seat order, against one dealer; RTP 99.65% with basic strategy (2,000,000-round simulation). The regulars' calculated mindset counts cards (Hi-Lo, index plays, bet spread) |
-| Party Trump 21 | Trump 21 at a full table: one shoe of five 1–11 decks, every seat with its own target and trump hand; attacks on the dealer's hand (Heist, Gift and Rewind among them) change the round for the whole table; bonus trumps on a hit as at Trump 21 (Overload stays a single-table card); ties go to the dealer, who gets two trumps a round; best strategy 97.8% |
+| Party Trump 21 | Trump 21 at a full table: one shoe of five 1–11 decks, every seat with its own target and trump hand; attacks on the dealer's hand (Heist, Gift and Rewind among them) change the round for the whole table; bonus trumps on a hit (three in ten; Overload stays a single-table card). Ten cards of its own: **wild cards** that draw a rival at random, another player or the dealer, with a roulette over the table (Wild Switch, Wild Force, Wild Low / High Swap, Wild Hand Swap, Wild Redeal), and **table cards** (Pass Around, Table Pick, Rampart, Table Crown); a player whose hand another player's card changes after their turn answers with a short turn. Ties go to the dealer, who gets two trumps a round; best strategy 97.7% |
 | Party Lucky Horses | Lucky Horses with four regulars at the rail: everybody's chips on every horse in their seat colours, cheering for the leader; same odds and RTP as Lucky Horses (94.9%) |
 | Craps | Casino craps on a 3D table with diamond-pyramid walls and physical translucent dice: Pass / Don't Pass, Come / Don't Come, free 3-4-5× odds, Place, Field, Big 6/8, hardways and the centre props, ON/OFF puck, stickman calls; every house edge as in the textbooks (Pass 1.41%, odds 0%) |
 | Poker Dice | Five card-faced dice (9 to A) rolled from a leather cup into a tray, three rolls with holds, then the dealer rolls to beat you; five of a kind pays 2:1, Bonus side bet; ANTE 96.6% with the exact optimal holds |
@@ -127,7 +127,7 @@ Every table opens with a cardistry show picked at random, never the same one twi
 ```bash
 npm install
 npm run dev          # http://127.0.0.1:5174
-npm run test         # 594 rule / payout / RTP / achievement tests
+npm run test         # 603 rule / payout / RTP / achievement tests
 npm run sim:showdown # Showdown Poker balance report → docs/showdown-balance.md
 npm run sim:abyss    # Abyss Poker balance report → docs/abyss-balance.md
 npm run sim:brazil   # Brazilian games balance report → docs/brazil-balance.md

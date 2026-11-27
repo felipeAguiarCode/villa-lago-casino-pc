@@ -10,6 +10,7 @@ import {
   TARGET_MAX,
   TARGET_MIN,
   TARGET_TRUMPS,
+  SINGLE_TRUMPS,
   TRUMPS,
   WILD_MAX,
   WILD_MIN,
@@ -230,7 +231,7 @@ describe('Trump 21 — player hint for target trumps', () => {
 
 describe('Trump 21 — dealing balance', () => {
   const share = (dealer: boolean) => {
-    const pool = TRUMPS.filter((t) => !dealer || t.dealer);
+    const pool = SINGLE_TRUMPS.filter((t) => !dealer || t.dealer);
     const all = pool.reduce((a, t) => a + dealWeight(t.id), 0);
     return pool.filter((t) => isTargetTrump(t.id)).reduce((a, t) => a + dealWeight(t.id), 0) / all;
   };
@@ -442,7 +443,8 @@ describe('Trump 21 — the newer trumps', () => {
   it('are in the codex with a rarity, and the dealer gets only Lighten, Heist and Barrier', () => {
     const NEW: TrumpId[] = ['call1', 'call8', 'lighten', 'heist', 'gift', 'overload', 'rewind', 'barrier', 'tiebreak', 'bullseye', 'reinforce'];
     for (const id of NEW) expect(TRUMPS.find((t) => t.id === id)).toBeTruthy();
-    expect(TRUMPS.length).toBe(57);
+    expect(SINGLE_TRUMPS.length).toBe(57);
+    expect(TRUMPS.length).toBe(67); // with the ten Party Trump 21 cards
     expect(NEW.filter((id) => DEALER_TRUMPS.includes(id))).toEqual(['lighten', 'heist', 'barrier']);
     for (const id of ['heist', 'gift', 'overload', 'rewind'] as TrumpId[]) expect(isAttackTrump(id)).toBe(true);
   });

@@ -29,7 +29,9 @@ import {
  *   its whole turn (trumps any time, hit as often as it likes, stand ends the turn), then the
  *   dealer turns its hole card over and plays. When a dealer trump hits a seat's hand (Force
  *   Draw, Burn) that seat answers at once with a short turn of its own (as in Trump 21, where a
- *   card that lands on your hand gives you the move again), then the dealer goes on.
+ *   card that lands on your hand gives you the move again), then the dealer goes on. When another
+ *   seat's card changes the hand of a seat that already finished its turn, that seat answers as
+ *   soon as the current turn is over (`reply`, one seat at a time).
  * - Targets: the table target is 21 and only the dealer's target cards move it. A seat that plays
  *   a target card gets a target of its own for the rest of the round, which the dealer's target
  *   cards no longer touch (so Reset 21 "locks" 21).
@@ -42,9 +44,10 @@ import {
  *   for a seat on Line 17, and a seat on Line 27 would beat every standing dealer.
  *
  * TRUMPS AT A FULL TABLE (each seat holds up to five, kept between rounds, dealt with Trump 21's
- * weights (`dealWeight`): one at every deal, and a seat's hit turns up a bonus trump instead of
- * the card one time in five (PX.trumpOnHit) while its hand has room: the seat keeps its turn and
- * its next hit is a sure card. The dealer's hits keep a 30% trump along with the card.)
+ * weights (`dealWeight`; this table's own cards at half of it, PX.partyScale): one at every deal,
+ * and a seat's hit turns up a bonus trump instead of the card three times in ten (PX.trumpOnHit)
+ * while its hand has room: the seat keeps its turn and its next hit is a sure card. The dealer's
+ * hits keep a 30% trump along with the card.)
  * - Personal, only the seat that plays them: draw control (Precision, Feather, Call 2–7, Twin
  *   Draw, Redraw, Recall), information (Glimpse is a private peek at the hole card; Foresight
  *   shows the seat the top card of the shoe; Reshuffle shuffles the shoe), the target family
@@ -54,9 +57,13 @@ import {
  *   to the shoe), Switch (your last card for its last card), Force Draw (it takes the top card
  *   now), Freeze, Shatter, Pickpocket, Blindfold, Heist (its last card to your hand), Gift (your
  *   last card to it) and Rewind (your last card and its last card back to the shoe).
- * - Personal too: Lighten (your highest card back), Barrier (blocks the next dealer trump aimed at
- *   the seat: no reply), Tiebreaker (the seat wins its ties), Bullseye (3:1 right on its target),
- *   Reinforce (two new trumps).
+ * - Personal too: Lighten (your highest card back), Barrier (blocks the next trump aimed at the
+ *   seat, the dealer's or another seat's: no reply), Tiebreaker (the seat wins its ties), Bullseye
+ *   (3:1 right on its target), Reinforce (two new trumps).
+ * - This table's own cards (never dealt at Trump 21's single table, never to the dealer): the wild
+ *   cards draw a rival at random among the other seats and the dealer (WILD_RIVAL: Wild Switch,
+ *   Wild Force, Wild Low / High Swap, Wild Hand Swap, Wild Redeal), and the table cards play on the
+ *   full table (TABLE_CARDS: Pass Around, Table Pick, Rampart, Table Crown).
  * - Adapted: Precision and Feather pick from the next three cards of the shoe (with five decks
  *   the whole shoe nearly always holds the perfect card, which would make Precision a sure 21);
  *   Freeze lets the dealer draw at most one card on its turn (it plays last, so "stand on your
@@ -91,11 +98,11 @@ import {
  */
 
 /**
- * A seat's bonus trump chance on a hit: one in five. Trump 21's single table went down to one in
- * six (BONUS_ON_HIT) when its hand grew to seven and it gained the swap trumps; this table keeps
- * its own balance (five trumps a hand, none of the swaps).
+ * A seat's bonus trump chance on a hit: three in ten (it was one in five before this table got its
+ * own wild and table cards; see HOUSE BALANCE). Trump 21's single table has its own (BONUS_ON_HIT,
+ * one in six, seven trumps a hand).
  */
-export const PARTY_BONUS_ON_HIT = 0.2;
+export const PARTY_BONUS_ON_HIT = 0.3;
 
 export const DEALER = -1;
 /** A seat index (0 = first base, play order) or DEALER. */
@@ -124,6 +131,8 @@ export const PX = {
   aggression: 1,
   /** Precision and Feather choose from this many cards at the top of the shoe. */
   peek: 3,
+  /** This table's own cards (the wild rivals, the table cards) are dealt at this share of their rarity weight. */
+  partyScale: 0.5,
 };
 
 /**
@@ -131,13 +140,19 @@ export const PX = {
  * kept from round to round; Stakes Up raises count as wagered; tests/partytrump.test.ts checks
  * shorter runs):
  * - party: the player's seat with the strongest strategy found (ai.ts `calculated`, which is
- *   also the light bulb), next to four regulars who draw a new mindset every hand: 97.8%
- *   (3 × 40,000 rounds: 97.8 / 97.5 / 98.1). Simpler play: hit at even odds without trumps
- *   51.1%, always hit to 17 52.3%, every trump at once then hit to 17 57.3%.
+ *   also the light bulb), next to four regulars who draw a new mindset every hand: 97.7%
+ *   (40,000 / 30,000 rounds: 97.4 / 98.1 / 98.1 / 97.2 / 97.9). Simpler play: hit at even odds
+ *   without trumps 50.8%, always hit to 17 52.3%, every trump at once then hit to 17 57.3%.
  * - single: the single Trump 21 table with the same strategy: 98.4% (see trump21/rules.ts).
  * - mindsets: five players with one fixed mindset each at one table (seats rotating, 3 × 20,000
- *   rounds): calculated 96.9%, aggressive 95.6%, hybrid 93.6%, conservative 89.9%, hunch 70.0%.
- *   The regulars as they play (a new mindset every hand) return 93.6%.
+ *   rounds): calculated 97.3%, aggressive 96.3%, hybrid 94.0%, conservative 90.6%, hunch 70.3%.
+ *   The regulars as they play (a new mindset every hand) return 93.8%.
+ * The wild cards and the table cards turned the other seats into rivals: dealt at full weight with
+ * the old one-in-five bonus they cost the strong seat ~6 points (92.0%), mostly through the
+ * regulars' cards landing on its hand (93.6% when only the regulars held them) and the slots they
+ * take from stronger trumps (95.8% when only the player held them); a bigger hand barely helped
+ * (seven trumps: 91.8%). Dealt at half weight (PX.partyScale) with a bonus three hits in ten,
+ * the table is back to 97.7% and the regulars to 93.8%.
  * With the bonus trumps and the newer trumps, Overload dealt to the seats pushed the strong seat
  * to ~99.5–100% (five seats throwing two cards at the dealer for everyone); without it, 97.8%.
  * How it got there (it paid 122.4% to the strong strategy, like Trump 21's 124.4%):
@@ -149,9 +164,9 @@ export const PX = {
  */
 export const PX_RTP = {
   single: 0.984,
-  party: 0.978,
-  mindsets: { calculated: 0.969, aggressive: 0.956, hybrid: 0.936, conservative: 0.899, hunch: 0.7 },
-  regulars: 0.936,
+  party: 0.977,
+  mindsets: { calculated: 0.973, aggressive: 0.963, hybrid: 0.94, conservative: 0.906, hunch: 0.703 },
+  regulars: 0.938,
 };
 
 const CALLS: Partial<Record<TrumpId, number>> = { call1: 1, call2: 2, call3: 3, call4: 4, call5: 5, call6: 6, call7: 7, call8: 8 };
@@ -189,10 +204,30 @@ export const isAttack = (id: TrumpId) => ATTACKS.includes(id);
 /** Stake trumps (only change what the seat's own bet pays). */
 export const STAKE_TRUMPS: TrumpId[] = ['guard', 'fortress', 'stakes', 'bounty', 'tiebreak', 'bullseye'];
 
+/**
+ * This table's own cards that draw a rival at random: one of the other seats or the dealer (only
+ * those the card would do something to). Wild Switch (last card for last card), Wild Force (the
+ * rival takes the top card), Wild Low / High Swap (lowest for lowest, highest for highest), Wild
+ * Hand Swap (the whole hands) and Wild Redeal (both hands back into the shoe and dealt again, one
+ * card each in turn, the player of the card first).
+ */
+export const WILD_RIVAL: TrumpId[] = ['wildSwitch', 'wildForce', 'wildLow', 'wildHigh', 'wildHands', 'wildRedeal'];
+export const isWildRival = (id: TrumpId) => WILD_RIVAL.includes(id);
+/**
+ * This table's cards for a full table: Pass Around (every seat with two cards or more passes its
+ * last card to the next seat, the last one to the first), Table Pick (your last card for the other
+ * seat's last card that brings you closest to your target), Rampart (the dealer's next trump aimed
+ * at any seat is blocked) and Table Crown (a win with the hand closest to its target at the whole
+ * table pays CROWN_EXTRA more).
+ */
+export const TABLE_CARDS: TrumpId[] = ['passAround', 'tablePick', 'rampart', 'crown'];
+/** Table Crown: a win with the closest hand of the table pays this much more (2 to 1). */
+export const CROWN_EXTRA = 1;
+
 /** Trumps this table knows how to play (anything Trump 21 adds that isn't a target trump is left out). */
 const KNOWN = new Set<string>([
   'precision', 'feather', 'twin', 'redraw', 'recall', 'lighten', 'glimpse', 'foresight', 'reshuffle', 'barrier', 'reinforce',
-  ...Object.keys(CALLS), ...ATTACKS, ...STAKE_TRUMPS,
+  ...Object.keys(CALLS), ...ATTACKS, ...STAKE_TRUMPS, ...WILD_RIVAL, ...TABLE_CARDS,
 ]);
 export const knownTrump = (id: TrumpId) => KNOWN.has(id) || isTargetTrump(id);
 /**
@@ -205,9 +240,12 @@ export const SEAT_POOL: TrumpId[] = TRUMPS.map((t) => t.id).filter((id) => known
 const NOT_DEALER = new Set<TrumpId>(['freeze', 'heist', 'barrier']);
 export const DEALER_POOL: TrumpId[] = TRUMPS.filter((t) => t.dealer && !NOT_DEALER.has(t.id) && knownTrump(t.id)).map((t) => t.id);
 
+/** Dealing weight at this table: Trump 21's, this table's own cards scaled by PX.partyScale. */
+export const partyWeight = (id: TrumpId) => (isWildRival(id) || TABLE_CARDS.includes(id) ? Math.max(1, Math.round(dealWeight(id) * PX.partyScale)) : dealWeight(id));
+
 /** One trump drawn from a pool with Trump 21's dealing weights (rarity; the target family scaled down). */
 export function pickTrump(pool: TrumpId[], rng: Rng): TrumpId {
-  const w = dealWeight;
+  const w = partyWeight;
   const total = pool.reduce((a, id) => a + w(id), 0);
   let r = rng(total);
   for (const id of pool) {
@@ -232,8 +270,21 @@ export type PxEvent =
   | { t: 'gain'; who: Who; id: TrumpId; bonus?: boolean }
   /** Heist / Gift: a card goes from one hand to another. */
   | { t: 'move'; from: Who; to: Who; value: number }
-  /** The seat's Barrier stopped a dealer trump aimed at it. */
-  | { t: 'blocked'; seat: number; id: TrumpId }
+  /**
+   * A trump aimed at a seat was stopped: by its Barrier (`by`: the seat that played it, none for
+   * the dealer) or, for a dealer trump, by the table's Rampart.
+   */
+  | { t: 'blocked'; seat: number; id: TrumpId; by?: number; rampart?: boolean }
+  /** A seat's wild trump drew its rival (`pool`: everyone it could have drawn). */
+  | { t: 'rival'; who: number; id: TrumpId; on: Who; pool: Who[] }
+  /** Card `ai` of hand `a` and card `bi` of hand `b` change places. */
+  | { t: 'swapCards'; a: Who; ai: number; b: Who; bi: number }
+  /** Two whole hands change places. */
+  | { t: 'swapHands'; a: Who; b: Who }
+  /** Every card of hands `a` and `b` goes back into the shoe (the cards that follow deal them again). */
+  | { t: 'redeal'; a: Who; b: Who }
+  /** Pass Around: each of these seats' last card goes to the next one in the list (the last one's to the first). */
+  | { t: 'rotate'; seats: number[] }
   | { t: 'lose'; who: Who; id: TrumpId; by: 'shatter' | 'pickpocket' | 'discard' }
   | { t: 'foresee'; seat: number; value: number }
   | { t: 'glimpse'; seat: number; value: number }
@@ -243,8 +294,8 @@ export type PxEvent =
   | { t: 'stand'; who: Who }
   /** The dealer's turn begins: its hole card is turned over. */
   | { t: 'hole'; value: number }
-  /** The dealer's trump hit this seat's hand: it answers now. */
-  | { t: 'reply'; seat: number };
+  /** A trump hit this seat's hand after its turn: it answers now (`by`: the seat that played it; none: the dealer). */
+  | { t: 'reply'; seat: number; by?: number };
 
 export interface PxSeatIn {
   bet: number;
@@ -265,8 +316,10 @@ export class PxSeat {
   sawHole = false;
   /** Knows the top card of the shoe (Foresight). */
   knowsTop = false;
-  /** Barrier: the next dealer trump aimed at this seat is blocked. */
+  /** Barrier: the next trump aimed at this seat (the dealer's or another seat's) is blocked. */
   barrier = false;
+  /** Table Crown: a win with the closest hand of the table pays CROWN_EXTRA more. */
+  crown = false;
   /** Tiebreaker: ties go to this seat. */
   tieWin = false;
   /** Bullseye: a win exactly on the target pays BULLSEYE_EXTRA more. */
@@ -328,6 +381,10 @@ export class PartyDuel {
   holeUp = false;
   phase: 'deal' | 'seats' | 'dealer' | 'done' = 'deal';
   aggression = PX.aggression;
+  /** Rampart: the dealer's next trump aimed at a seat is blocked. */
+  rampart = false;
+  /** Seats whose hand another seat's trump changed after their turn: each answers in turn. */
+  private pending: { seat: number; by: number }[] = [];
   private evs: PxEvent[] = [];
 
   constructor(
@@ -481,7 +538,14 @@ export class PartyDuel {
     this.seats[seat].stood = true;
     if (this.reply === seat) this.reply = null;
     this.emit({ t: 'stand', who: seat });
-    if (this.phase === 'seats' && this.seats.every((s) => s.stood)) {
+    // a seat whose hand another seat's trump changed after its turn answers now
+    if (this.reply === null && this.pending.length) {
+      const { seat: next, by } = this.pending.shift()!;
+      this.reply = next;
+      this.seats[next].stood = false;
+      this.emit({ t: 'reply', seat: next, by });
+    }
+    if (this.phase === 'seats' && this.reply === null && this.seats.every((s) => s.stood)) {
       // the dealer's turn begins: the hole card is turned over for everyone
       this.phase = 'dealer';
       this.holeUp = true;
@@ -490,12 +554,64 @@ export class PartyDuel {
     return this.flush();
   }
 
+  /** Who a seat's wild trump may draw as its rival: the other seats and the dealer it would do something to. */
+  rivals(seat: number, id: TrumpId): Who[] {
+    const me = this.seats[seat].cards.length;
+    const all: Who[] = [...this.seats.map((_, i) => i).filter((i) => i !== seat), DEALER];
+    return all.filter((w) => {
+      const n = this.hand(w).length;
+      if (id === 'wildSwitch') return me >= 2 && n >= 2;
+      if (id === 'wildForce') return this.shoe.length > 0;
+      if (id === 'wildRedeal') return n > 0;
+      return me > 0 && n > 0;
+    });
+  }
+
+  /** The seats that take part in Pass Around: every one holding two cards or more, in play order. */
+  passRing(): number[] {
+    return this.seats.map((_, i) => i).filter((i) => this.seats[i].cards.length >= 2);
+  }
+
+  /**
+   * Table Pick: the other seat whose last card brings `seat` closest to its target (a total under
+   * the target before any over it; the first in play order on a tie), or null.
+   */
+  pickFor(seat: number): number | null {
+    const s = this.seats[seat];
+    if (s.cards.length < 2) return null;
+    const T = this.targetOf(seat);
+    const base = this.total(seat) - s.cards[s.cards.length - 1];
+    let best = -1;
+    let bestScore = Infinity;
+    this.seats.forEach((o, i) => {
+      if (i === seat || o.cards.length < 2) return;
+      const n = base + o.cards[o.cards.length - 1];
+      const score = n <= T ? T - n : 100 + n - T;
+      if (score < bestScore) {
+        best = i;
+        bestScore = score;
+      }
+    });
+    return best < 0 ? null : best;
+  }
+
   /** Whether a seat's trump would do anything right now. */
   canUse(seat: number, id: TrumpId): boolean {
     const s = this.seats[seat];
     const me = s.cards;
     const d = this.dealer;
     if (!this.live(seat)) return false;
+    if (isWildRival(id)) return this.rivals(seat, id).length > 0;
+    switch (id) {
+      case 'passAround':
+        return me.length >= 2 && this.passRing().length >= 2;
+      case 'tablePick':
+        return this.pickFor(seat) !== null;
+      case 'rampart':
+        return !this.rampart;
+      case 'crown':
+        return !s.crown;
+    }
     if (CALLS[id] !== undefined) return this.shoe.includes(CALLS[id]!);
     const tm = targetMove(id);
     if (tm) {
@@ -584,6 +700,104 @@ export class PartyDuel {
     return k;
   }
 
+  /** Another seat's trump changed `w`'s hand: a seat that already finished answers once the current turn is over. */
+  private touched(w: Who, by: number) {
+    if (w === DEALER || w === by || !this.seats[w].stood || this.pending.some((p) => p.seat === w)) return;
+    this.pending.push({ seat: w, by });
+  }
+
+  /** The hole card changed before the dealer's turn: only `seat`, which put it there, knows the new one. */
+  private newHole(seat: number | null) {
+    if (this.holeUp) return;
+    for (const s of this.seats) s.sawHole = false;
+    if (seat !== null) this.seats[seat].sawHole = true;
+  }
+
+  /** Card `ai` of hand `a` and card `bi` of hand `b` change places. */
+  private swapAt(a: number, ai: number, b: Who, bi: number) {
+    const ha = this.hand(a);
+    const hb = this.hand(b);
+    [ha[ai], hb[bi]] = [hb[bi], ha[ai]];
+    this.emit({ t: 'swapCards', a, ai, b, bi });
+    if (b === DEALER && bi === 0) this.newHole(a);
+  }
+
+  /** Two whole hands change places. */
+  private swapHands(a: number, b: Who) {
+    const ha = this.hand(a);
+    const hb = this.hand(b);
+    const mine = ha.slice();
+    ha.splice(0, ha.length, ...hb);
+    hb.splice(0, hb.length, ...mine);
+    this.emit({ t: 'swapHands', a, b });
+    if (b === DEALER) this.newHole(a);
+  }
+
+  /** Both hands back into the shoe, then as many cards each again, one at a time, `a` first. */
+  private redeal(a: number, b: Who) {
+    const ha = this.hand(a);
+    const hb = this.hand(b);
+    const left = new Map<Who, number>([
+      [a, ha.length],
+      [b, hb.length],
+    ]);
+    this.shoe.push(...ha, ...hb);
+    ha.length = 0;
+    hb.length = 0;
+    shuffle(this.shoe, this.rng);
+    this.topChanged();
+    this.emit({ t: 'redeal', a, b });
+    if (b === DEALER) this.newHole(null);
+    let turn: Who = a;
+    while (left.get(a)! + left.get(b)! > 0) {
+      if (left.get(turn)! > 0) {
+        // the first card is a seat's private card again, or the dealer's hole card
+        const first = this.hand(turn).length === 0 && (turn !== DEALER || !this.holeUp);
+        this.give(turn, 0, first);
+        left.set(turn, left.get(turn)! - 1);
+      }
+      turn = turn === a ? b : a;
+    }
+  }
+
+  /** A seat's Barrier stops another seat's trump aimed at it. */
+  private barred(seat: number, on: Who, id: TrumpId): boolean {
+    if (on === DEALER || !this.seats[on].barrier) return false;
+    this.seats[on].barrier = false;
+    this.emit({ t: 'blocked', seat: on, id, by: seat });
+    return true;
+  }
+
+  /** A wild trump: its rival is drawn at random, then it acts on that hand. */
+  private playWild(seat: number, id: TrumpId) {
+    const pool = this.rivals(seat, id);
+    const on = pool[this.rng(pool.length)];
+    this.emit({ t: 'rival', who: seat, id, on, pool });
+    if (this.barred(seat, on, id)) return;
+    const mine = this.seats[seat].cards;
+    const theirs = this.hand(on);
+    const pick = (h: number[], high: boolean) => h.indexOf(high ? Math.max(...h) : Math.min(...h));
+    switch (id) {
+      case 'wildSwitch':
+        this.swapAt(seat, mine.length - 1, on, theirs.length - 1);
+        break;
+      case 'wildLow':
+      case 'wildHigh':
+        this.swapAt(seat, pick(mine, id === 'wildHigh'), on, pick(theirs, id === 'wildHigh'));
+        break;
+      case 'wildHands':
+        this.swapHands(seat, on);
+        break;
+      case 'wildForce':
+        this.give(on);
+        break;
+      case 'wildRedeal':
+        this.redeal(seat, on);
+        break;
+    }
+    this.touched(on, seat);
+  }
+
   useTrump(seat: number, id: TrumpId): PxEvent[] {
     const s = this.seats[seat];
     const i = s.trumps.indexOf(id);
@@ -591,6 +805,10 @@ export class PartyDuel {
     s.trumps.splice(i, 1);
     this.emit({ t: 'trump', who: seat, id });
     const D = this.dealer;
+    if (isWildRival(id)) {
+      this.playWild(seat, id);
+      return this.flush();
+    }
     if (CALLS[id] !== undefined) {
       this.give(seat, this.shoe.indexOf(CALLS[id]!));
       return this.flush();
@@ -716,6 +934,27 @@ export class PartyDuel {
         this.grant(seat, 1);
         this.grant(seat, 1);
         break;
+      case 'passAround': {
+        const ring = this.passRing();
+        const lasts = ring.map((k) => this.seats[k].cards.pop()!);
+        ring.forEach((_, k) => this.seats[ring[(k + 1) % ring.length]].cards.push(lasts[k]));
+        this.emit({ t: 'rotate', seats: ring });
+        for (const k of ring) this.touched(k, seat);
+        break;
+      }
+      case 'tablePick': {
+        const o = this.pickFor(seat)!;
+        if (this.barred(seat, o, id)) break;
+        this.swapAt(seat, s.cards.length - 1, o, this.seats[o].cards.length - 1);
+        this.touched(o, seat);
+        break;
+      }
+      case 'rampart':
+        this.rampart = true;
+        break;
+      case 'crown':
+        s.crown = true;
+        break;
     }
     return this.flush();
   }
@@ -838,6 +1077,11 @@ export class PartyDuel {
       this.emit({ t: 'blocked', seat: on, id });
       return false;
     }
+    if (on !== undefined && this.rampart) {
+      this.rampart = false;
+      this.emit({ t: 'blocked', seat: on, id, rampart: true });
+      return false;
+    }
     if (CALLS[id] !== undefined) {
       this.give(DEALER, this.shoe.indexOf(CALLS[id]!));
       D.drawn++;
@@ -914,10 +1158,21 @@ export class PartyDuel {
     return compare(this.total(seat), this.targetOf(seat), this.total(DEALER), this.tableTarget, PX.tiesToSeat || this.seats[seat].tieWin);
   }
 
-  /** What a seat's win pays (to 1): 1, 2 with Bounty, plus BULLSEYE_EXTRA when Bullseye lands exactly on its target. */
+  /**
+   * What a seat's win pays (to 1): 1, 2 with Bounty, plus BULLSEYE_EXTRA when Bullseye lands
+   * exactly on its target and CROWN_EXTRA when Table Crown has the closest hand of the table.
+   */
   winPays(seat: number) {
     const s = this.seats[seat];
-    return s.winMult + (s.bullseye && this.total(seat) === this.targetOf(seat) ? BULLSEYE_EXTRA : 0);
+    return s.winMult + (s.bullseye && this.total(seat) === this.targetOf(seat) ? BULLSEYE_EXTRA : 0) + (s.crown && this.closest(seat) ? CROWN_EXTRA : 0);
+  }
+
+  /** No other seat's hand is closer to its own target (a hand over its target is never the closest; ties share it). */
+  closest(seat: number) {
+    const gap = (i: number) => this.targetOf(i) - this.total(i);
+    const g = gap(seat);
+    if (g < 0) return false;
+    return this.seats.every((_, i) => i === seat || gap(i) < 0 || gap(i) >= g);
   }
 
   /** Amount returned on one stake of a seat (its bet, or the Stakes Up raise). */

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { seededRng, type Rng } from '../src/core/rng';
-import { dealWeight, duelOutcome, isTargetTrump as t21Target, TRUMPS, type TrumpId } from '../src/games/trump21/rules';
+import { dealWeight, duelOutcome, isTargetTrump as t21Target, SINGLE_TRUMPS, TRUMPS, type TrumpId } from '../src/games/trump21/rules';
 import { newMemory, type Mindset } from '../src/games/partybj/mindset';
 import { drawRegulars, replacementFor, ROSTER } from '../src/games/partybj/roster';
 import { aiStake, aiTurn, autoPlay, seatTurnPick, seatView, type AiPick, type DealerInfo, type TableInfo } from '../src/games/partytrump/ai';
-import { compare, DEALER, DEALER_POOL, PartyDuel, pickTrump, PX, SEAT_POOL, targetMove, WILD, type PxSeatIn } from '../src/games/partytrump/rules';
+import { compare, DEALER, DEALER_POOL, PartyDuel, partyWeight, pickTrump, PX, SEAT_POOL, targetMove, WILD, type PxEvent, type PxSeatIn } from '../src/games/partytrump/rules';
 import { rtp, simulateMindsets, simulateParty, simulateSingle } from '../src/games/partytrump/sim';
 
 const seats = (bets = [10, 10, 10, 10, 10]): PxSeatIn[] => bets.map((bet, i) => ({ bet, trumps: [], player: i === 2 }));
@@ -345,7 +345,7 @@ describe('Party Trump 21 — bonus trumps and the newer trumps', () => {
   };
 
   it("a seat's hit may turn up a bonus trump: it keeps its turn and its next hit is a sure card", () => {
-    expect(PX.trumpOnHit).toBe(0.2);
+    expect(PX.trumpOnHit).toBe(0.3);
     withBonus(1, () => {
       const r = table({ hands: [[2, 3]], shoe: [4, 5, 6, 7] });
       const ev = r.hit(0);
@@ -425,7 +425,7 @@ describe('Party Trump 21 — bonus trumps and the newer trumps', () => {
 });
 
 describe('Party Trump 21 — the house balance (seeded simulations)', () => {
-  // Long-run figures are in PX_RTP (rules.ts): strongest strategy 97.8% here and 98.4% at the
+  // Long-run figures are in PX_RTP (rules.ts): strongest strategy 97.7% here and 98.4% at the
   // single table; these shorter seeded runs keep the balance in check.
   it('ties go to the dealer and the dealer is dealt two trumps a round', () => {
     expect(PX.tiesToSeat).toBe(false);
@@ -457,4 +457,166 @@ describe('Party Trump 21 — the house balance (seeded simulations)', () => {
     // and the regulars as they play, a new mindset every hand
     expect(rtp(simulateParty(6000, 222).regulars)).toBeLessThan(1);
   }, 180000);
+});
+
+describe('Party Trump 21 — wild rivals and the table cards', () => {
+  const NEW: TrumpId[] = ['wildSwitch', 'wildForce', 'wildLow', 'wildHigh', 'wildHands', 'wildRedeal', 'passAround', 'tablePick', 'rampart', 'crown'];
+  const of = <K extends PxEvent['t']>(ev: PxEvent[], t: K) => ev.filter((e): e is Extract<PxEvent, { t: K }> => e.t === t);
+
+  it('are dealt only at this table, at half their weight, and never to the dealer', () => {
+    for (const id of NEW) {
+      expect(SEAT_POOL).toContain(id);
+      expect(DEALER_POOL).not.toContain(id);
+      expect(SINGLE_TRUMPS.some((t) => t.id === id)).toBe(false);
+      expect(TRUMPS.find((t) => t.id === id)?.party).toBe(true);
+      expect(partyWeight(id)).toBe(Math.round(dealWeight(id) * 0.5));
+    }
+    expect(PX.partyScale).toBe(0.5);
+    expect(partyWeight('precision')).toBe(dealWeight('precision'));
+  });
+
+  it('a wild card draws its rival among the other seats and the dealer, then acts on that hand', () => {
+    const hands = [
+      [2, 3],
+      [4, 5],
+      [6, 7],
+      [8, 9],
+      [10, 11],
+    ];
+    const seen = new Set<number>();
+    for (let seed = 1; seed <= 60; seed++) {
+      const r = table({ hands, dealer: [1, 2], trumps: [[], [], ['wildHands']], seed });
+      const ev = r.useTrump(2, 'wildHands');
+      const [rv] = of(ev, 'rival');
+      expect(rv.pool).toEqual([0, 1, 3, 4, DEALER]);
+      seen.add(rv.on);
+      expect(r.seats[2].cards).toEqual(rv.on === DEALER ? [1, 2] : hands[rv.on]);
+      expect(r.hand(rv.on)).toEqual([6, 7]);
+    }
+    expect(seen.size).toBe(5);
+  });
+
+  it('Wild Switch, Low / High Swap, Force and Redeal act on the rival drawn', () => {
+    // only seat 4 has two cards: Wild Switch can draw no one else
+    const a = table({ hands: [[5], [6], [3, 10], [7], [8, 9]], dealer: [4], trumps: [[], [], ['wildSwitch']] });
+    const ev = a.useTrump(2, 'wildSwitch');
+    expect(of(ev, 'rival')[0].on).toBe(4);
+    expect(ev).toContainEqual({ t: 'swapCards', a: 2, ai: 1, b: 4, bi: 1 });
+    expect(a.seats[2].cards).toEqual([3, 9]);
+    expect(a.seats[4].cards).toEqual([8, 10]);
+    // only the dealer holds cards: Low Swap, then High Swap (its highest is the hole card)
+    const b = table({ hands: [[], [], [3, 10, 6], [], []], dealer: [9, 2], trumps: [[], [], ['wildLow', 'wildHigh', 'wildRedeal']] });
+    b.useTrump(2, 'wildLow');
+    expect(b.seats[2].cards).toEqual([2, 10, 6]);
+    expect(b.dealer.cards).toEqual([9, 3]);
+    b.useTrump(2, 'wildHigh');
+    expect(b.seats[2].cards).toEqual([2, 9, 6]);
+    expect(b.dealer.cards).toEqual([10, 3]);
+    expect(b.seesHole(2)).toBe(true); // it put the card there
+    const shoe = b.shoe.length;
+    const rd = b.useTrump(2, 'wildRedeal');
+    expect(rd).toContainEqual({ t: 'redeal', a: 2, b: DEALER });
+    expect(of(rd, 'card').map((e) => `${e.who === DEALER ? 'D' : e.who}${e.hidden ? 'h' : ''}`)).toEqual(['2h', 'Dh', '2', 'D', '2']);
+    expect(b.seats[2].cards.length).toBe(3);
+    expect(b.dealer.cards.length).toBe(2);
+    expect(b.shoe.length).toBe(shoe);
+    expect(b.seesHole(2)).toBe(false); // a new hole card
+    // Wild Force: the rival takes the top card
+    const c = table({ hands: [[5, 6], [5, 6], [5, 6], [5, 6], [5, 6]], dealer: [4, 4], shoe: [7, 8, 9], trumps: [[], [], ['wildForce']] });
+    const on = of(c.useTrump(2, 'wildForce'), 'rival')[0].on;
+    expect(c.hand(on)).toEqual(on === DEALER ? [4, 4, 7] : [5, 6, 7]);
+  });
+
+  it('a seat whose hand changes after its turn answers before the next seat plays', () => {
+    const r = table({ hands: [[2, 11], [4, 5], [6, 7], [8, 3], [10, 2]], trumps: [[], [], ['tablePick']] });
+    r.stand(0);
+    r.stand(1);
+    // the 11 of first base brings 6 + 7 closest to 21
+    r.useTrump(2, 'tablePick');
+    expect(r.seats[2].cards).toEqual([6, 11]);
+    expect(r.seats[0].cards).toEqual([2, 7]);
+    expect(r.reply).toBe(null);
+    const ev = r.stand(2);
+    expect(ev).toContainEqual({ t: 'reply', seat: 0, by: 2 });
+    expect(r.reply).toBe(0);
+    expect(r.live(0)).toBe(true);
+    expect(r.phase).toBe('seats');
+    r.hit(0);
+    r.stand(0);
+    expect(r.reply).toBe(null);
+    r.stand(3);
+    expect(r.stand(4).some((e) => e.t === 'hole')).toBe(true);
+    expect(r.phase).toBe('dealer');
+  });
+
+  it('Pass Around passes every last card to the next seat (seats with two cards or more)', () => {
+    const r = table({ hands: [[1, 2], [3, 4], [5, 6], [7], [8, 9]], trumps: [[], [], ['passAround']] });
+    expect(r.useTrump(2, 'passAround')).toContainEqual({ t: 'rotate', seats: [0, 1, 2, 4] });
+    expect(r.seats.map((s) => s.cards)).toEqual([[1, 9], [3, 2], [5, 4], [7], [8, 6]]);
+  });
+
+  it("a Barrier stops another seat's card; Rampart stops the dealer's next aimed trump at any seat", () => {
+    const r = table({ hands: [[2, 11], [4, 5], [6, 7], [8, 3], [10, 2]], trumps: [['barrier'], [], ['tablePick']] });
+    r.useTrump(0, 'barrier');
+    r.stand(0);
+    expect(r.useTrump(2, 'tablePick')).toContainEqual({ t: 'blocked', seat: 0, id: 'tablePick', by: 2 });
+    expect(r.seats[0].cards).toEqual([2, 11]);
+    const q = table({ hands: [[2, 11, 4], [5, 6], [5, 6], [5, 6], [5, 6]], dealer: [8, 10], shoe: [8, 2, 2, 2], dealerTrumps: ['force'], trumps: [[], [], ['rampart']] });
+    q.dealer.trumps.splice(1);
+    q.useTrump(2, 'rampart');
+    expect(q.rampart).toBe(true);
+    standAll(q);
+    q.aggression = 1;
+    expect(q.dealerStep()).toContainEqual({ t: 'blocked', seat: 0, id: 'force', rampart: true });
+    expect(q.seats[0].cards).toEqual([2, 11, 4]);
+    expect(q.rampart).toBe(false);
+    expect(q.reply).toBe(null);
+  });
+
+  it('Table Crown pays one more to the hand closest to its target at the whole table', () => {
+    const r = table({ hands: [[10, 9], [10, 11], [10, 8], [10, 7], [10, 6]], dealer: [10, 7], trumps: [[], ['crown'], ['crown']] });
+    r.useTrump(1, 'crown');
+    r.useTrump(2, 'crown');
+    standAll(r);
+    r.dealer.stood = true;
+    r.phase = 'done';
+    const res = r.settle();
+    expect(res[1].ret).toBe(30); // 21: the closest, 2 to 1
+    expect(res[2].ret).toBe(20); // 18 wins, but 21 is closer
+  });
+
+  it('the strongest strategy finds them', () => {
+    // over at 22: Table Pick brings back the 7 of second base (20)
+    const r = table({ hands: [[2, 11], [4, 7], [6, 7, 9], [8, 3], [10, 2]], dealer: [9, 8], trumps: [[], [], ['tablePick']] });
+    const v = seatView(r, 2, true);
+    expect(aiTurn('calculated', v.hand, v.target, v.trumps, v.dealer, v.table, newMemory(), seededRng(1))).toMatchObject({ trump: 'tablePick' });
+  });
+
+  it('they come up in play, and every round still ends', () => {
+    const played = new Set<TrumpId>();
+    const use = PartyDuel.prototype.useTrump;
+    PartyDuel.prototype.useTrump = function (this: PartyDuel, seat: number, id: TrumpId) {
+      const ev = use.call(this, seat, id);
+      if (ev.length) played.add(id);
+      return ev;
+    };
+    try {
+      const rng = seededRng(77);
+      const trumps: TrumpId[][] = Array.from({ length: 5 }, () => []);
+      const dealer: TrumpId[] = [];
+      const mem = Array.from({ length: 5 }, () => newMemory());
+      for (let i = 0; i < 3000; i++) {
+        const r = new PartyDuel(
+          trumps.map((t) => ({ bet: 10, trumps: t })),
+          dealer,
+          rng,
+        );
+        autoPlay(r, (s) => seatTurnPick(r, s, 'calculated', mem[s], true, rng));
+        expect(r.done).toBe(true);
+      }
+    } finally {
+      PartyDuel.prototype.useTrump = use;
+    }
+    for (const id of NEW) expect(played.has(id)).toBe(true);
+  }, 120000);
 });

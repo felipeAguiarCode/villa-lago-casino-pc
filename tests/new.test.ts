@@ -276,7 +276,7 @@ describe('Trump 21', () => {
   });
 });
 
-import { TRUMPS, type TrumpId } from '../src/games/trump21/rules';
+import { SINGLE_TRUMPS as TRUMPS, type TrumpId } from '../src/games/trump21/rules';
 
 describe('Trump 21 — trump variations', () => {
   const fresh = (seed: number, trumps: TrumpId[]) => {
