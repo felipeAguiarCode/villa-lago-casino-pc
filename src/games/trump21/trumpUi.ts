@@ -21,6 +21,8 @@ addStrings(
     'tu.clickPlay': 'Click to play it',
     'tu.notNow': "Can't be played right now",
     'tu.hold': 'Point at a trump card (or hold it) to see what it does',
+    'tu.full': 'HAND FULL',
+    'tu.fullSub': 'Seven trumps at most: this one is discarded',
   },
   {
     'tu.bonus': 'TRUNFO BÔNUS!',
@@ -29,6 +31,8 @@ addStrings(
     'tu.clickPlay': 'Clique para usar',
     'tu.notNow': 'Não pode ser usado agora',
     'tu.hold': 'Passe o mouse sobre um trunfo (ou segure-o) para ver o que ele faz',
+    'tu.full': 'MÃO CHEIA',
+    'tu.fullSub': 'No máximo sete trunfos: este é descartado',
   },
 );
 
@@ -219,6 +223,8 @@ export interface BonusFly {
   to: HTMLElement | null;
   /** Size at landing, relative to a hand card (the face-down piles are smaller). */
   endScale?: number;
+  /** The hand is full: the card shows "hand full", then drops away to the discard instead of landing. */
+  discard?: boolean;
 }
 
 /**
@@ -260,11 +266,19 @@ export async function flyBonusTrump(g: GameCtx, o: BonusFly) {
       box.classList.add('shine');
       const call = document.createElement('div');
       call.className = 'trump-call';
-      call.innerHTML = `<b>${t('tu.bonus')}</b><small>${t('tu.bonusSub')}</small>`;
+      call.innerHTML = o.discard ? `<b>${t('tu.full')}</b><small>${t('tu.fullSub')}</small>` : `<b>${t('tu.bonus')}</b><small>${t('tu.bonusSub')}</small>`;
+      if (o.discard) call.classList.add('full');
       box.appendChild(call);
       await tween({ scaleX: 1.7, duration: 0.14, ease: 'back.out(2.4)' });
-      await new Promise<void>((res) => gsap.delayedCall(0.75, res));
+      await new Promise<void>((res) => gsap.delayedCall(o.discard ? 0.9 : 0.75, res));
       gsap.to(call, { opacity: 0, duration: 0.15 });
+      if (o.discard) {
+        // greyed out, it tips over and falls away
+        box.classList.remove('shine');
+        face.style.filter = 'grayscale(1) brightness(0.55)';
+        await tween({ y: mid.y + H * 0.16, rotation: 28, scale: 1.2, opacity: 0, duration: 0.5, ease: 'power2.in' });
+        return;
+      }
       const to = end ?? { x: W * 0.8, y: H * 0.8 };
       await tween({ x: to.x, y: to.y, scale: o.endScale ?? 1, rotation: 4, duration: 0.34, ease: 'power2.in' });
     } else {

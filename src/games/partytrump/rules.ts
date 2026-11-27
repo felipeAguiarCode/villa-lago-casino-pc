@@ -4,12 +4,10 @@ import {
   dealWeight,
   isTargetTrump,
   lineValue,
-  MAX_TRUMPS,
   shiftValue,
   TARGET_MAX,
   TARGET_MIN,
   TRUMPS,
-  BONUS_ON_HIT,
   TRUMP_ON_HIT,
   wildTarget,
   wildTargets,
@@ -66,9 +64,11 @@ import {
  * - Dropped: the dealer's Freeze (it plays last; no seat has a turn left to freeze), Heist and
  *   Barrier, so its pool is Trump 21's dealer pool minus those three (it gains Lighten). For the
  *   seats only Overload is left out (PARTY_LEFT_OUT); any new non-target trump Trump 21 adds later
- *   stays out of the pools until this table knows it.
+ *   stays out of the pools until this table knows it (Low / High Swap, Hand Swap and Redeal do;
+ *   Line 29 came in with the target family).
  * - The dealer is dealt two trumps every round (it faces five hands; a seat gets one) and its
- *   hand holds five, a new one replacing its oldest, so it never clogs (Trump 21 does the same).
+ *   hand holds five, a new one replacing its oldest, so it never clogs (Trump 21 does the same
+ *   with seven).
  *
  * DEALER (house rule, documented in px.rules)
  * - Draws while its total is more than 3 under the table target (under 18 at 21) and stands from
@@ -90,6 +90,13 @@ import {
  * RTP: see PX_RTP below and tests/partytrump.test.ts.
  */
 
+/**
+ * A seat's bonus trump chance on a hit: one in five. Trump 21's single table went down to one in
+ * six (BONUS_ON_HIT) when its hand grew to seven and it gained the swap trumps; this table keeps
+ * its own balance (five trumps a hand, none of the swaps).
+ */
+export const PARTY_BONUS_ON_HIT = 0.2;
+
 export const DEALER = -1;
 /** A seat index (0 = first base, play order) or DEALER. */
 export type Who = number;
@@ -102,9 +109,10 @@ export const PX = {
   /** The regulars bet 10–200 of their own chips. */
   aiMin: 10,
   aiMax: 200,
-  maxTrumps: MAX_TRUMPS,
+  /** Trumps a hand holds (Trump 21's single table holds seven; five here, with five seats drawing them). */
+  maxTrumps: 5,
   /** Bonus trump chance of a seat's hit (instead of the card) / trump chance with each card the dealer hits. */
-  trumpOnHit: BONUS_ON_HIT,
+  trumpOnHit: PARTY_BONUS_ON_HIT,
   dealerOnHit: TRUMP_ON_HIT,
   /** Trumps the dealer is dealt every round (a seat: one): it faces five hands. */
   dealerDeal: 2,

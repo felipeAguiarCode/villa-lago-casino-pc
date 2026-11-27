@@ -81,6 +81,8 @@ export interface TableInfo {
   freezeDraws?: number;
   /** Ties go to the seat (default) or to the dealer. */
   tiesWin?: boolean;
+  /** Trumps a hand holds at most (default: the party table's). */
+  maxTrumps?: number;
 }
 
 export type AiPick = 'hit' | 'stand' | { trump: TrumpId; on: 'self' | 'dealer' };
@@ -116,6 +118,7 @@ const KEEP: Partial<Record<TrumpId, number>> = {
   line25: 0.24,
   line26: 0.22,
   line27: 0.22,
+  line29: 0.16,
   line30: 0.16,
   shiftUp: 0.2,
   shiftDown: 0.18,
@@ -131,6 +134,10 @@ const KEEP: Partial<Record<TrumpId, number>> = {
   gift: 0.12,
   overload: 0.14,
   rewind: 0.12,
+  swapLow: 0.1,
+  swapHigh: 0.12,
+  swapHands: 0.2,
+  redeal: 0.12,
   barrier: 0.05,
   guard: 0.18,
   fortress: 0.36,
@@ -345,6 +352,29 @@ function makeCtx(hand: number[], target: number, dealer: DealerInfo, table: Tabl
 
 const at = (v: Float64Array, p: number) => v[Math.max(0, Math.min(MAXT - 1, p))];
 
+const sums = new Map<number, Float64Array>();
+/** Chance of each total for `k` different cards of the full 1–11 deck (a hand dealt again by Redeal). */
+function deckSums(k: number): Float64Array {
+  const hit = sums.get(k);
+  if (hit) return hit;
+  // ways[j][t]: subsets of j cards adding up to t
+  const ways = Array.from({ length: k + 1 }, () => new Float64Array(MAXT));
+  ways[0][0] = 1;
+  for (let v = 1; v <= 11; v++)
+    for (let j = Math.min(k, v); j >= 1; j--) for (let t = MAXT - 1; t >= v; t--) ways[j][t] += ways[j - 1][t - v];
+  const all = ways[k].reduce((a, b) => a + b, 0);
+  const out = ways[k].map((w) => (all ? w / all : 0));
+  sums.set(k, out);
+  return out;
+}
+/** The whole 1–11 deck unseen (after a Redeal), with the same dealer reading as `m`. */
+function freshModel(m: Model): Model {
+  const fresh = new Model(Array.from({ length: 11 }, (_, i) => i + 1));
+  fresh.rescue = m.rescue;
+  fresh.tieWin = m.tieWin;
+  return fresh;
+}
+
 /** Expected value of a draw from the top `peek` cards: Precision (best fit) or Feather (lowest). */
 function pickDraw(c: Ctx, best: boolean): number {
   const { f } = c.m;
@@ -408,9 +438,30 @@ function afterTrump(c: Ctx, id: TrumpId): number | null {
   // the dealer's Barrier would stop it: wasted
   if (dealer.barrier && isAttackTrump(id)) return null;
   /** Value of the seat at total `np` against the dealer's visible sum `dv` (and `extra` forced cards). */
-  const against = (np: number, dv: number, extra = 0) => {
-    const v = m.values(Ts, m.dstate(dv, dealer.hidden, dealer.target, dealer.standAt, dealer.draws, extra));
+  const against = (np: number, dv: number, extra = 0, hidden = dealer.hidden) => {
+    const v = m.values(Ts, m.dstate(dv, hidden, dealer.target, dealer.standAt, dealer.draws, extra));
     return Math.max(at(v.S, np), np < Ts ? at(v.H, np) : 0);
+  };
+  /**
+   * Low Swap / High Swap: the seat's lowest (highest) card for the dealer's. With the hole card
+   * unseen, each value it may have is weighed: when it is the one that comes over, the seat sees
+   * the dealer's whole hand afterwards.
+   */
+  const swapOne = (high: boolean) => {
+    if (!c.hand.length || !dealerCards) return null;
+    const pick = (h: number[]) => (high ? Math.max(...h) : Math.min(...h));
+    const mine = pick(c.hand);
+    if (!dealer.hidden) {
+      const theirs = pick(dealer.visible);
+      return against(p - mine + theirs, vis - theirs + mine, 0, 0);
+    }
+    let ev = 0;
+    for (let h = 1; h <= 11; h++) {
+      if (!f[h]) continue;
+      const theirs = pick([h, ...dealer.visible]);
+      ev += f[h] * (theirs === h && !dealer.visible.includes(h) ? against(p - mine + h, vis + mine, 0, 0) : against(p - mine + theirs, vis - theirs + mine));
+    }
+    return ev;
   };
   switch (id) {
     case 'lighten':
@@ -426,11 +477,32 @@ function afterTrump(c: Ctx, id: TrumpId): number | null {
     case 'rewind':
       if (dealerCards < 2 || !dealer.visible.length || c.hand.length < 2) return null;
       return against(p - c.last, vis - dealerLast);
+    case 'swapLow':
+      return swapOne(false);
+    case 'swapHigh':
+      return swapOne(true);
+    case 'swapHands': {
+      // the seat takes the dealer's hand (its hole card included); the dealer plays on with the seat's, in plain sight
+      if (!c.hand.length || !dealerCards) return null;
+      if (!dealer.hidden) return against(vis, p, 0, 0);
+      let ev = 0;
+      for (let h = 1; h <= 11; h++) if (f[h]) ev += f[h] * against(vis + h, p, 0, 0);
+      return ev;
+    }
+    case 'redeal': {
+      // every card back to the deck and both hands dealt again with as many cards (one of the dealer's face down)
+      const fresh = freshModel(m);
+      const v = fresh.values(Ts, fresh.dstate(0, dealerCards, dealer.target, dealer.standAt, dealer.draws));
+      const dist = deckSums(c.hand.length);
+      let ev = 0;
+      for (let t = 0; t < MAXT; t++) if (dist[t]) ev += dist[t] * Math.max(v.S[t], t < Ts ? v.H[t] : 0);
+      return ev;
+    }
     case 'barrier':
       // keeps the dealer's attacks off the hand (it sees how many trumps the dealer holds)
       return dealer.blinded ? c.base : c.base + (0.006 * Math.min(5, dealer.trumps)) / Math.max(0.5, c.k);
     case 'reinforce': {
-      const room = MAX_TRUMPS - (c.held - 1);
+      const room = (table.maxTrumps ?? PX.maxTrumps) - (c.held - 1);
       return c.base + (Math.min(2, Math.max(0, room)) * NEW_TRUMP) / Math.max(0.5, c.k);
     }
     case 'precision':
@@ -531,10 +603,10 @@ const locks = (id: TrumpId, c: Ctx) => {
   return to !== null && to < c.Ts && c.p <= to;
 };
 
-function bendFor(mind: Mindset, mem: AiMemory, trumps: TrumpId[], rng: Rng): Bend {
+function bendFor(mind: Mindset, mem: AiMemory, trumps: TrumpId[], rng: Rng, max: number): Bend {
   // a full hand loses the trumps still to come: a free slot is worth about one new trump
-  const full = trumps.length >= MAX_TRUMPS ? AI_TUNE.fullMul : trumps.length >= MAX_TRUMPS - 1 ? (1 + AI_TUNE.fullMul) / 2 : 1;
-  const slot = trumps.length >= MAX_TRUMPS ? AI_TUNE.slot : trumps.length >= MAX_TRUMPS - 1 ? AI_TUNE.slot * 0.35 : 0;
+  const full = trumps.length >= max ? AI_TUNE.fullMul : trumps.length >= max - 1 ? (1 + AI_TUNE.fullMul) / 2 : 1;
+  const slot = trumps.length >= max ? AI_TUNE.slot : trumps.length >= max - 1 ? AI_TUNE.slot * 0.35 : 0;
   const base = (id: TrumpId) => keepOf(id) * full * AI_TUNE.keepMul;
   const b = bendCore(mind, mem, base, rng);
   return { ...b, keep: (id, c) => b.keep(id, c) - slot };
@@ -602,7 +674,7 @@ function decide(c: Ctx, trumps: TrumpId[], bend: Bend, mind: Mindset, mem: AiMem
     const close = Math.abs(c.H - c.S) < AI_TUNE.lean;
     if (mind === 'hybrid' && close && mem.streak !== 0) {
       if (mem.streak > 0) return 'hit';
-    } else if (c.H + bend.hitBias + (trumps.length < MAX_TRUMPS ? AI_TUNE.hitBonus : 0) > c.S) return 'hit';
+    } else if (c.H + bend.hitBias + (trumps.length < (table.maxTrumps ?? PX.maxTrumps) ? AI_TUNE.hitBonus : 0) > c.S) return 'hit';
   }
   // 3. standing: the stake trumps
   const pw = c.S;
@@ -646,7 +718,7 @@ export function aiTurn(
 ): AiPick {
   const c = makeCtx(hand, target, dealer, table);
   c.held = trumps.length;
-  const bend = bendFor(mind, mem, trumps, rng);
+  const bend = bendFor(mind, mem, trumps, rng, table.maxTrumps ?? PX.maxTrumps);
   const pick = decide(c, trumps, bend, mind === 'hunch' ? 'calculated' : mind, mem);
   if (mind !== 'hunch' || rng(4) !== 0) return pick;
   // a hunch: another legal move (never a hit at or over the target)
@@ -781,6 +853,7 @@ export function duelPick(d: Duel, mind: Mindset, mem: AiMemory, rng: Rng): AiPic
     sharedTarget: true,
     freezeDraws: 0,
     tiesWin: T21.tiesToPlayer || d.tieWin,
+    maxTrumps: MAX_TRUMPS,
   };
   return aiTurn(mind, d.player, d.target, d.trumps.player, dealer, table, mem, rng);
 }

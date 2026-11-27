@@ -222,7 +222,7 @@ describe('Party Trump 21 — trumps at a full table', () => {
   });
 
   it('deals by Trump 21 weights from pools the table knows; the dealer holds no Freeze', () => {
-    expect(SEAT_POOL.length).toBe(TRUMPS.length - 1); // every trump but Overload
+    expect(SEAT_POOL.length).toBe(TRUMPS.length - 5); // every trump but Overload and the four swaps this table doesn't know
     expect(DEALER_POOL).not.toContain('freeze');
     const rng = seededRng(4);
     let target = 0;

@@ -47,8 +47,8 @@ const dealerPlays = (d: Duel) => d.dealerTurn().find((e): e is Extract<DuelEvent
 const NEW_LINES = ['line15', 'line18', 'line19', 'line20', 'line22', 'line23', 'line25', 'line26', 'line30'] as const;
 
 describe('Trump 21 — target family', () => {
-  it('lists the sixteen target trumps, each with a rarity', () => {
-    expect(TARGET_TRUMPS.length).toBe(16);
+  it('lists the seventeen target trumps, each with a rarity', () => {
+    expect(TARGET_TRUMPS.length).toBe(17);
     for (const id of [...NEW_LINES, 'line17', 'line24', 'line27', 'reset21', 'lineWild', 'shiftUp', 'shiftDown'] as TrumpId[]) {
       expect(isTargetTrump(id)).toBe(true);
       expect(TRUMPS.find((t) => t.id === id)).toBeTruthy();
@@ -235,7 +235,7 @@ describe('Trump 21 — dealing balance', () => {
     return pool.filter((t) => isTargetTrump(t.id)).reduce((a, t) => a + dealWeight(t.id), 0) / all;
   };
   it('the target family is dealt about as often as the old four lines (10.3% / 25%)', () => {
-    expect(share(false)).toBeGreaterThan(0.1);
+    expect(share(false)).toBeGreaterThan(0.09);
     expect(share(false)).toBeLessThan(0.14);
     expect(share(true)).toBeGreaterThan(0.24);
     expect(share(true)).toBeLessThan(0.3);
@@ -295,13 +295,16 @@ describe('Trump 21 — the house balance', () => {
 
   it("the dealer's full hand makes room: a new trump replaces his oldest; the player's does not", () => {
     const d = new Duel(seededRng(2));
-    d.trumps.dealer = ['reset21', 'call4', 'call4', 'call4', 'call4'];
-    d.trumps.player = ['call2', 'call2', 'call2', 'call2', 'call2'];
+    d.trumps.dealer = ['reset21', 'call4', 'call4', 'call4', 'call4', 'call4', 'call4'];
+    d.trumps.player = Array(MAX_TRUMPS).fill('call2');
     const ev = d.start();
-    expect(d.trumps.dealer.length).toBe(5);
-    expect(d.trumps.dealer.slice(0, 4)).toEqual(['call4', 'call4', 'call4', 'call4']);
+    expect(MAX_TRUMPS).toBe(7);
+    expect(d.trumps.dealer.length).toBe(7);
+    expect(d.trumps.dealer.slice(0, 6)).toEqual(Array(6).fill('call4'));
     expect(ev).toContainEqual({ t: 'lose', side: 'dealer', id: 'reset21', by: 'discard' });
-    expect(d.trumps.player).toEqual(['call2', 'call2', 'call2', 'call2', 'call2']);
+    // the player's new trump is discarded at once
+    expect(d.trumps.player).toEqual(Array(MAX_TRUMPS).fill('call2'));
+    expect(ev.filter((e) => e.t === 'overflow' && e.side === 'player').length).toBe(1);
   });
 
   it('the dealer keeps playing trumps round after round, target cards included', () => {
@@ -332,8 +335,8 @@ describe('Trump 21 — the house balance', () => {
     expect(plays.filter(isTargetTrump).length / plays.length).toBeGreaterThan(0.1);
   });
 
-  // Long-run figures (3 × 100,000 rounds): the strongest strategy 98.2%, odds rule 53.9%, hit to
-  // 17 53.0%, every trump at once 59.3% (trump21/rules.ts). These runs are shorter.
+  // Long-run figures (6 × 100,000 rounds): the strongest strategy 98.4%, odds rule 49.8%, hit to
+  // 17 49.2%, every trump at once 55.5% (trump21/rules.ts). These runs are shorter.
   it('the strongest strategy found (also the light bulb) returns 96–99%', () => {
     const r = rtp(simulateSingle(40000, 101));
     expect(r).toBeGreaterThan(0.955);
@@ -358,9 +361,9 @@ describe('Trump 21 — bonus trumps on a hit', () => {
     }
   };
 
-  it('about one hit in five turns up a bonus trump', () => {
+  it('about one hit in six turns up a bonus trump', () => {
     expect(T21.playerOnHit).toBe(BONUS_ON_HIT);
-    expect(BONUS_ON_HIT).toBe(0.2);
+    expect(BONUS_ON_HIT).toBe(0.17);
   });
 
   it('a bonus comes instead of the card: the turn stays the player\'s and the next hit is a sure card', () => {
@@ -389,7 +392,7 @@ describe('Trump 21 — bonus trumps on a hit', () => {
 
   it('no bonus with a full trump hand, an empty deck or when frozen', () => {
     withBonus(1, () => {
-      const d = spot([3, 9], [5, 8], 21, { player: ['call2', 'call2', 'call2', 'call2', 'call2'] });
+      const d = spot([3, 9], [5, 8], 21, { player: Array(MAX_TRUMPS).fill('call2') });
       expect(d.hit('player').some((e) => e.t === 'draw')).toBe(true);
       expect(d.trumps.player.length).toBe(MAX_TRUMPS);
       const e = spot([3, 9], [5, 8]);
@@ -439,7 +442,7 @@ describe('Trump 21 — the newer trumps', () => {
   it('are in the codex with a rarity, and the dealer gets only Lighten, Heist and Barrier', () => {
     const NEW: TrumpId[] = ['call1', 'call8', 'lighten', 'heist', 'gift', 'overload', 'rewind', 'barrier', 'tiebreak', 'bullseye', 'reinforce'];
     for (const id of NEW) expect(TRUMPS.find((t) => t.id === id)).toBeTruthy();
-    expect(TRUMPS.length).toBe(52);
+    expect(TRUMPS.length).toBe(57);
     expect(NEW.filter((id) => DEALER_TRUMPS.includes(id))).toEqual(['lighten', 'heist', 'barrier']);
     for (const id of ['heist', 'gift', 'overload', 'rewind'] as TrumpId[]) expect(isAttackTrump(id)).toBe(true);
   });
@@ -548,4 +551,110 @@ describe('Trump 21 — the newer trumps', () => {
     const f = spot([3, 9], [5, 8], 21, { player: ['reinforce'] });
     expect(duelPick(f, 'calculated', mem, seededRng(1))).toEqual({ trump: 'reinforce', on: 'self' });
   });
+});
+
+describe('Trump 21 — the swaps, Redeal, Line 29 and the seven-trump hand', () => {
+  it('are in the codex: player-only, the swaps and Redeal count as attacks (a Barrier stops them)', () => {
+    const NEW: TrumpId[] = ['swapLow', 'swapHigh', 'swapHands', 'redeal', 'line29'];
+    for (const id of NEW) expect(TRUMPS.find((t) => t.id === id)).toBeTruthy();
+    expect(NEW.filter((id) => DEALER_TRUMPS.includes(id))).toEqual([]);
+    for (const id of ['swapLow', 'swapHigh', 'swapHands', 'redeal'] as TrumpId[]) expect(isAttackTrump(id)).toBe(true);
+    expect(lineValue('line29')).toBe(29);
+    expect(isTargetTrump('line29')).toBe(true);
+  });
+
+  it('Line 29 sets the target to 29', () => {
+    const d = spot([10, 11], [9, 8], 21, { player: ['line29'] });
+    expect(d.useTrump('player', 'line29')).toContainEqual({ t: 'target', n: 29 });
+    expect(d.target).toBe(29);
+  });
+
+  it('Low Swap and High Swap trade the lowest / highest card of each hand, each to the other\'s place', () => {
+    const d = spot([3, 9, 6], [10, 5, 2], 21, { player: ['swapLow', 'swapHigh'] });
+    expect(d.useTrump('player', 'swapLow')).toContainEqual({ t: 'swap', side: 'player', kind: 'low', a: 3, b: 2 });
+    expect(d.player).toEqual([2, 9, 6]);
+    expect(d.dealer).toEqual([10, 5, 3]);
+    expect(d.glimpsed).toBe(false); // the face-down card stayed put
+    // the dealer's highest is his face-down card: it comes over, and the player knows the card in its place
+    expect(d.useTrump('player', 'swapHigh')).toContainEqual({ t: 'swap', side: 'player', kind: 'high', a: 9, b: 10 });
+    expect(d.player).toEqual([2, 10, 6]);
+    expect(d.dealer).toEqual([9, 5, 3]);
+    expect(d.glimpsed).toBe(true);
+  });
+
+  it('Hand Swap trades the whole hands; Redeal deals as many cards again, one at a time, taking turns', () => {
+    const d = spot([3, 9, 6], [10, 5], 21, { player: ['swapHands', 'redeal'] });
+    expect(d.useTrump('player', 'swapHands')).toContainEqual({ t: 'swap', side: 'player', kind: 'hands' });
+    expect(d.player).toEqual([10, 5]);
+    expect(d.dealer).toEqual([3, 9, 6]);
+    expect(d.glimpsed).toBe(true);
+    const ev = d.useTrump('player', 'redeal');
+    expect(ev[1]).toEqual({ t: 'redeal', side: 'player' });
+    const draws = ev.filter((e): e is Extract<DuelEvent, { t: 'draw' }> => e.t === 'draw');
+    expect(draws.map((e) => e.side)).toEqual(['player', 'dealer', 'player', 'dealer', 'dealer']);
+    expect(d.player.length).toBe(2);
+    expect(d.dealer.length).toBe(3);
+    expect(d.deck.length).toBe(6);
+    expect(new Set([...d.player, ...d.dealer, ...d.deck]).size).toBe(11);
+    expect(d.glimpsed).toBe(false); // a new face-down card
+    expect(d.stood).toEqual({ player: false, dealer: false });
+  });
+
+  it("the dealer's Barrier stops a swap", () => {
+    const d = spot([3, 9], [10, 5], 21, { player: ['swapHands'] });
+    d.barrier.dealer = true;
+    expect(d.useTrump('player', 'swapHands')).toContainEqual({ t: 'blocked', side: 'dealer', id: 'swapHands' });
+    expect(d.player).toEqual([3, 9]);
+  });
+
+  it('a new trump that comes with the hand full (seven) is discarded at once', () => {
+    const d = spot([3, 9], [5, 8], 21, { player: ['reinforce', ...Array<TrumpId>(MAX_TRUMPS - 1).fill('call2')] });
+    const ev = d.useTrump('player', 'reinforce');
+    expect(d.trumps.player.length).toBe(MAX_TRUMPS);
+    expect(ev.filter((e) => e.t === 'gain').length).toBe(1);
+    expect(ev.filter((e) => e.t === 'overflow' && e.side === 'player').length).toBe(1);
+  });
+
+  it('the strongest strategy (the light bulb) finds them', () => {
+    const mem = newMemory();
+    const pick = (d: Duel) => duelPick(d, 'calculated', mem, seededRng(1));
+    // bust against a made hand it can see: take the dealer's hand
+    const a = spot([9, 10, 6], [11, 2, 7], 21, { player: ['swapHands'] });
+    a.glimpsed = true;
+    expect(pick(a)).toMatchObject({ trump: 'swapHands' });
+    // bust by the 11: trade it for the dealer's 9
+    const b = spot([11, 8, 3], [4, 2, 9], 21, { player: ['swapHigh'] });
+    b.glimpsed = true;
+    expect(pick(b)).toMatchObject({ trump: 'swapHigh' });
+    // bust against 20: deal both hands again
+    const c = spot([10, 8, 5], [11, 9], 21, { player: ['redeal'] });
+    c.glimpsed = true;
+    expect(pick(c)).toMatchObject({ trump: 'redeal' });
+  });
+
+  it('they come up in play, round after round', () => {
+    const rng = seededRng(9);
+    const d = new Duel(rng);
+    const mem = newMemory();
+    const plays = new Set<TrumpId>();
+    for (let i = 0; i < 4000; i++) {
+      d.start();
+      let g = 0;
+      while (!d.over && g++ < 60) {
+        let p = duelPick(d, 'calculated', mem, rng);
+        let k = 0;
+        while (typeof p === 'object' && k++ < 12) {
+          plays.add(p.trump);
+          if (!d.useTrump('player', p.trump).length) break;
+          p = duelPick(d, 'calculated', mem, rng);
+        }
+        d[typeof p === 'object' ? 'stand' : p]('player');
+        if (p === 'hit' && d.lastHitBonus) continue;
+        if (d.over) break;
+        d.dealerTurn();
+      }
+      expect(d.trumps.player.length).toBeLessThanOrEqual(MAX_TRUMPS);
+    }
+    for (const id of ['swapLow', 'swapHigh', 'swapHands', 'redeal', 'line29'] as TrumpId[]) expect(plays.has(id)).toBe(true);
+  }, 120000);
 });

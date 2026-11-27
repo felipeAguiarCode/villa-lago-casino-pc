@@ -2137,6 +2137,24 @@ input[type='range'] {
     0 0 calc(2.6 * var(--u)) rgba(255, 225, 140, 0.75);
 }
 
+/* six or seven trumps: the cards overlap a little, like a hand of cards, to fit the row */
+.trumprow.crowd {
+  gap: 0;
+}
+
+.trumprow.crowd .trump {
+  flex-shrink: 0;
+}
+
+.trumprow.crowd .trump + .trump {
+  margin-left: min(calc(1.6 * var(--u)), calc((100% - var(--n) * 13 * var(--u)) / (var(--n) - 1)));
+}
+
+/* the card being read comes to the front */
+.trumprow .trump.peeking {
+  z-index: 2;
+}
+
 /* held: the enlarged card and what it does */
 .trump-peek {
   position: absolute;
@@ -2297,6 +2315,21 @@ input[type='range'] {
   letter-spacing: 0.06em;
   color: #fff3cf;
   text-shadow: 0 calc(0.3 * var(--u)) calc(0.8 * var(--u)) rgba(0, 0, 0, 0.9);
+}
+
+/* a new trump with the hand full: it is discarded */
+.trump-call.full {
+  border-color: #c9837a;
+  box-shadow:
+    0 calc(0.8 * var(--u)) calc(2.4 * var(--u)) rgba(0, 0, 0, 0.6),
+    0 0 calc(2.4 * var(--u)) rgba(255, 120, 100, 0.35);
+}
+
+.trump-call.full b {
+  color: #ffb4a6;
+  text-shadow:
+    0 0 calc(1.6 * var(--u)) rgba(255, 110, 90, 0.85),
+    0 calc(0.4 * var(--u)) calc(0.8 * var(--u)) rgba(0, 0, 0, 0.8);
 }
 
 @keyframes trump-call {

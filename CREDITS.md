@@ -20,7 +20,7 @@ Jogo com **fichas fictícias**: sem dinheiro real, apostas reais ou compras (avi
 
 Splash "Made with CARD ENGINE": logo e animação originais, feitos para o jogo (não usa marca de nenhuma engine real).
 
-Trump 21: modo de blackjack original (baralho de 1 a 11 e cartas trunfo com nomes, efeitos e arte próprios; os ícones dos trunfos novos, como ímã, presente, muro e balança, foram desenhados em SVG no código),
+Trump 21: modo de blackjack original (baralho de 1 a 11 e cartas trunfo com nomes, efeitos e arte próprios; os ícones dos trunfos novos, como ímã, presente, muro, balança, as setas das trocas e o baralho do Redistribuir, foram desenhados em SVG no código),
 inspirado na mecânica de "blackjack com trunfos" — não usa personagens, nomes, arte ou marca de nenhum jogo existente.
 
 Decoração de mesa do PC modelada no código (sem assets externos): copos de cristal com bebidas (whisky, Old Fashioned, Negroni, conhaque, Mojito, Margarita, Cosmopolitan, gin-tônica, martini, caipirinha, vinho, champanhe), cafezinho, chá em porcelana, balde de champanhe, decanter de cristal, abajur de banqueiro, sineta, protetor de cartas, bandeja de fichas, umidor, vela, torres de fichas, placas de alto valor, botão de dealer, dados, plaquetas de mesa e o charuto aceso no cinzeiro da tela inicial (`src/table/decorKit.ts`). Não há charuto ou cinzeiro CC0 realista nos acervos livres (Poly Haven, Poly Pizza, OpenGameArt); por isso o charuto foi modelado no código.
